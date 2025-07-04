@@ -194,12 +194,34 @@ function injectFloatingWindow() {
       win.style.right = '';
     }
   });
-  document.addEventListener('mouseup', () => {
+  document.addEventListener('mouseup', async () => {
     isDragging = false;
     document.body.style.userSelect = '';
+    // Save position
+    const win = document.getElementById('tldr-floating-window');
+    if (win) {
+      const rect = win.getBoundingClientRect();
+      await setChromeStorage('tldr-window-bounds', {
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height
+      });
+    }
   });
   // Close button
   win.querySelector('#tldr-close-btn').onclick = () => win.remove();
+
+  // Resize logic
+  win.addEventListener('mouseup', async () => {
+    const rect = win.getBoundingClientRect();
+    await setChromeStorage('tldr-window-bounds', {
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height
+    });
+  });
 }
 
 // Listen for a message from the extension to open the floating window
@@ -941,16 +963,29 @@ function setupColorSelector() {
   });
 }
 
-// Update injectFloatingWindow to call these after injecting
+// Replace the injectFloatingWindow override with an async version that loads settings first
 const originalInjectFloatingWindow = injectFloatingWindow;
-injectFloatingWindow = function() {
+injectFloatingWindow = async function() {
   originalInjectFloatingWindow();
+  const win = document.getElementById('tldr-floating-window');
+  if (win) await applySavedWindowBounds(win);
+  // Load settings from chrome.storage.local
+  const savedColor = await getChromeStorage('tldr-color', 'blue');
+  const savedTheme = await getChromeStorage('tldr-theme', 'system');
+  const savedTrans = parseFloat(await getChromeStorage('tldr-translucency', '0.95'));
+  // Apply theme and color before rendering UI
+  applyTldrTheme(savedTheme);
+  applyTldrColor(savedColor);
+  if (win) win.style.setProperty('--tldr-bg-opacity', savedTrans);
   injectTldrThemeStyles();
   renderFloatingUI();
   setupFloatingUIHandlers();
   setupThemeSelector();
   setupTranslucencyControl();
   setupColorSelector();
+  // Always hide bookmarks modal on load
+  const bookmarksModal = document.getElementById('tldr-bookmarks-modal');
+  if (bookmarksModal) bookmarksModal.style.display = 'none';
 };
 
 // Migrate old history to bookmarks if needed
@@ -992,4 +1027,16 @@ async function setChromeStorage(key, value) {
     await setChromeStorage('tldr-translucency', localStorage.getItem('tldr-translucency'));
     localStorage.removeItem('tldr-translucency');
   }
-})(); 
+})();
+
+// When creating the floating window, restore size and position
+async function applySavedWindowBounds(win) {
+  const bounds = await getChromeStorage('tldr-window-bounds', null);
+  if (bounds) {
+    if (bounds.top !== undefined) win.style.top = bounds.top + 'px';
+    if (bounds.left !== undefined) win.style.left = bounds.left + 'px';
+    if (bounds.width !== undefined) win.style.width = bounds.width + 'px';
+    if (bounds.height !== undefined) win.style.height = bounds.height + 'px';
+    win.style.right = '';
+  }
+} 
