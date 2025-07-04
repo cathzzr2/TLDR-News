@@ -33,10 +33,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// Request main text when popup opens
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-  chrome.tabs.sendMessage(tabs[0].id, { type: 'REQUEST_MAIN_TEXT' });
-});
+function requestMainTextOrInject(retry = false) {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabId = tabs[0].id;
+    chrome.tabs.sendMessage(tabId, { type: 'REQUEST_MAIN_TEXT' }, (response) => {
+      if (chrome.runtime.lastError && !retry) {
+        // Content script not found, inject it then retry
+        chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          files: ['readability.js', 'content.js']
+        }, () => {
+          // Retry after injection
+          requestMainTextOrInject(true);
+        });
+      } else if (chrome.runtime.lastError && retry) {
+        // Still failed after injection
+        showError('Could not load article content. Please refresh the page and try again.');
+      }
+      // If no error, content script will send PAGE_MAIN_TEXT as usual
+    });
+  });
+}
+
+// Replace initial request with new function
+requestMainTextOrInject();
 
 // Summarize button logic
 const summarizeBtn = document.getElementById('summarize-btn');
