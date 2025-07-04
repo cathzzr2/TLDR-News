@@ -409,6 +409,7 @@ function setupFloatingUIHandlers() {
   let hasLoadedArticle = false;
   let cachedEnglishSummary = '';
   let lastSummarizedArticle = '';
+  let lastUsedModel = '';
   let hasTriedRefresh = false;
 
   // Available free Hugging Face models for summarization
@@ -424,42 +425,6 @@ function setupFloatingUIHandlers() {
       name: 'BART Large CNN (Balanced)',
       description: 'High quality summaries with good balance of speed and accuracy',
       category: 'Balanced'
-    },
-    {
-      id: 'google/pegasus-xsum',
-      name: 'PEGASUS XSum (Extractive)',
-      description: 'Extractive summarization, good for factual content',
-      category: 'Extractive'
-    },
-    {
-      id: 'microsoft/DialoGPT-medium',
-      name: 'DialoGPT Medium (Conversational)',
-      description: 'Good for conversational or opinion pieces',
-      category: 'Conversational'
-    },
-    {
-      id: 't5-small',
-      name: 'T5 Small (Versatile)',
-      description: 'Versatile model for various types of content',
-      category: 'Versatile'
-    },
-    {
-      id: 'facebook/bart-base',
-      name: 'BART Base (Reliable)',
-      description: 'Reliable baseline model for general summarization',
-      category: 'Reliable'
-    },
-    {
-      id: 'sshleifer/distilbart-xsum-12-3',
-      name: 'DistilBART XSum (Abstractive)',
-      description: 'Abstractive summarization, good for news articles',
-      category: 'Abstractive'
-    },
-    {
-      id: 'google/pegasus-cnn_dailymail',
-      name: 'PEGASUS CNN DailyMail (News)',
-      description: 'Optimized for news articles and daily content',
-      category: 'News'
     }
   ];
 
@@ -690,16 +655,19 @@ function setupFloatingUIHandlers() {
       bookmarksList.innerHTML += '<p style="color: #86868b;">No saved bookmarks yet.</p>';
       return;
     }
-    bookmarksList.innerHTML += arr.map(item => `
-      <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
-        <div style="font-size: 13px; font-weight: 600; margin-bottom: 2px;">${item.title || item.url}</div>
-        <div style="font-size: 12px; color: #86868b; margin-bottom: 2px;">${item.language} &middot; ${new Date(item.timestamp).toLocaleString()}</div>
-        <div style="font-size: 13px; margin-bottom: 4px;">${item.summary}</div>
-        <a href="${item.url}" target="_blank" style="font-size: 12px; color: var(--tldr-accent); text-decoration: underline;">Open Article</a>
-        <button data-idx="${item.id}" class="tldr-bookmarks-copy" style="margin-left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;">Copy</button>
-        <button data-idx="${item.id}" class="tldr-bookmarks-delete" style="margin-left: 4px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: #fff; color: #ff3b30; cursor: pointer;">Delete</button>
-      </div>
-    `).join('');
+    bookmarksList.innerHTML += arr.map(item => {
+      const modelName = item.model ? SUMMARIZATION_MODELS.find(m => m.id === item.model)?.name.split(' ')[0] || item.model : 'Unknown';
+      return `
+        <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
+          <div style="font-size: 13px; font-weight: 600; margin-bottom: 2px;">${item.title || item.url}</div>
+          <div style="font-size: 12px; color: #86868b; margin-bottom: 2px;">${item.language} &middot; ${modelName} &middot; ${new Date(item.timestamp).toLocaleString()}</div>
+          <div style="font-size: 13px; margin-bottom: 4px;">${item.summary}</div>
+          <a href="${item.url}" target="_blank" style="font-size: 12px; color: var(--tldr-accent); text-decoration: underline;">Open Article</a>
+          <button data-idx="${item.id}" class="tldr-bookmarks-copy" style="margin-left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;">Copy</button>
+          <button data-idx="${item.id}" class="tldr-bookmarks-delete" style="margin-left: 4px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: #fff; color: #ff3b30; cursor: pointer;">Delete</button>
+        </div>
+      `;
+    }).join('');
     // Add copy/delete handlers
     bookmarksList.querySelectorAll('.tldr-bookmarks-copy').forEach(btn => {
       btn.onclick = async () => {
@@ -776,6 +744,7 @@ function setupFloatingUIHandlers() {
       const title = document.title;
       const summary = document.getElementById('summary-text').innerText.replace(/^Summary\s*/, '');
       const language = document.getElementById('summary-language')?.value || 'en';
+      const model = await getCurrentModel();
       if (!summary || summary === 'Summary will appear here.') return;
       arr.push({
         id: Date.now(),
@@ -783,6 +752,7 @@ function setupFloatingUIHandlers() {
         title,
         summary,
         language,
+        model,
         timestamp: Date.now()
       });
       await setBookmarks(arr);
@@ -794,6 +764,7 @@ function setupFloatingUIHandlers() {
   // Initialize current model
   (async () => {
     currentModelId = await getCurrentModel();
+    lastUsedModel = currentModelId;
     const currentModel = SUMMARIZATION_MODELS.find(m => m.id === currentModelId);
     if (currentModel && modelBtn) {
       modelBtn.textContent = currentModel.name.split(' ')[0]; // Show short name
@@ -829,17 +800,24 @@ function setupFloatingUIHandlers() {
       return;
     }
     const language = languageSelect.value;
-    if (extractedArticle !== lastSummarizedArticle) {
+    const currentModel = await getCurrentModel();
+    
+    // Check if we need to regenerate (new model or new article)
+    const needsRegeneration = extractedArticle !== lastSummarizedArticle || currentModel !== lastUsedModel;
+    
+    if (needsRegeneration) {
       showSummary('Summarizing with AI...');
       try {
         const summary = await summarizeLongTextWithHuggingFace(extractedArticle);
         cachedEnglishSummary = cleanSummaryFormatting(summary);
         lastSummarizedArticle = extractedArticle;
+        lastUsedModel = currentModel;
       } catch (e) {
         showSummary('AI summarization failed: ' + e.message);
         return;
       }
     }
+    
     if (language !== 'en') {
       showSummary('Translating summary...');
       try {
