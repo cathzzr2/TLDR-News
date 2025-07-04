@@ -247,7 +247,7 @@ function renderFloatingUI() {
             <option value="dark">Dark</option>
           </select>
         </div>
-        <button id="tldr-history-btn" style="margin-left: 8px; padding: 4px 12px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;">History</button>
+        <button id="tldr-bookmarks-btn" style="margin-left: 8px; padding: 4px 12px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;">Bookmarks</button>
       </div>
     </div>
     <div id="tldr-initial-prompt" style="margin-bottom: 8px; color: var(--tldr-accent); font-style: italic; text-align: center; font-size: 12px; line-height: 1.2; width: 100%; box-sizing: border-box; word-break: break-word;">
@@ -354,11 +354,11 @@ function renderFloatingUI() {
     </div>
   `;
   content.innerHTML += `
-    <div id="tldr-history-modal" style="display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 1000; justify-content: center; align-items: center; display: flex;">
+    <div id="tldr-bookmarks-modal" style="display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 1000; justify-content: center; align-items: center; display: flex;">
       <div style="background: var(--tldr-bg); color: var(--tldr-text); border-radius: 12px; width: min(90%, 480px); max-width: 100%; height: auto; max-height: 80%; overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.18); padding: 2vw; position: relative; display: flex; flex-direction: column; word-break: break-word;">
-        <button id="tldr-history-close" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 20px; color: var(--tldr-text); cursor: pointer;">&times;</button>
-        <h2 style="margin-top: 0; font-size: 1.2em;">History</h2>
-        <div id="tldr-history-list" style="flex: 1 1 auto; min-width: 0; word-break: break-word;"></div>
+        <button id="tldr-bookmarks-close" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 20px; color: var(--tldr-text); cursor: pointer;">&times;</button>
+        <h2 style="margin-top: 0; font-size: 1.2em;">Bookmarks</h2>
+        <div id="tldr-bookmarks-list" style="flex: 1 1 auto; min-width: 0; word-break: break-word;"></div>
       </div>
     </div>
   `;
@@ -504,60 +504,60 @@ function setupFloatingUIHandlers() {
   const shareBtn = document.getElementById('share-summary-btn');
   const lengthSelect = document.getElementById('summary-length');
   const languageSelect = document.getElementById('summary-language');
-  const historyBtn = document.getElementById('tldr-history-btn');
+  const bookmarksBtn = document.getElementById('tldr-bookmarks-btn');
   const saveBtn = document.getElementById('tldr-save-btn');
-  const historyModal = document.getElementById('tldr-history-modal');
-  const historyList = document.getElementById('tldr-history-list');
-  const historyClose = document.getElementById('tldr-history-close');
+  const bookmarksModal = document.getElementById('tldr-bookmarks-modal');
+  const bookmarksList = document.getElementById('tldr-bookmarks-list');
+  const bookmarksClose = document.getElementById('tldr-bookmarks-close');
 
-  function getHistory() {
-    return JSON.parse(localStorage.getItem('tldr-history') || '[]');
+  async function getBookmarks() {
+    return await getChromeStorage('tldr-bookmarks', []);
   }
-  function setHistory(arr) {
-    localStorage.setItem('tldr-history', JSON.stringify(arr));
+  async function setBookmarks(arr) {
+    await setChromeStorage('tldr-bookmarks', arr);
   }
-  function renderHistory() {
-    const arr = getHistory();
+  async function renderBookmarks() {
+    const arr = await getBookmarks();
     // Add a feedback message area at the top
-    historyList.innerHTML = '<div id="tldr-history-feedback" style="min-height: 18px; font-size: 13px; color: var(--tldr-accent); margin-bottom: 6px;"></div>';
+    bookmarksList.innerHTML = '<div id="tldr-bookmarks-feedback" style="min-height: 18px; font-size: 13px; color: var(--tldr-accent); margin-bottom: 6px;"></div>';
     if (!arr.length) {
-      historyList.innerHTML += '<p style="color: #86868b;">No saved summaries yet.</p>';
+      bookmarksList.innerHTML += '<p style="color: #86868b;">No saved bookmarks yet.</p>';
       return;
     }
-    historyList.innerHTML += arr.map(item => `
+    bookmarksList.innerHTML += arr.map(item => `
       <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
         <div style="font-size: 13px; font-weight: 600; margin-bottom: 2px;">${item.title || item.url}</div>
         <div style="font-size: 12px; color: #86868b; margin-bottom: 2px;">${item.language} &middot; ${new Date(item.timestamp).toLocaleString()}</div>
         <div style="font-size: 13px; margin-bottom: 4px;">${item.summary}</div>
         <a href="${item.url}" target="_blank" style="font-size: 12px; color: var(--tldr-accent); text-decoration: underline;">Open Article</a>
-        <button data-idx="${item.id}" class="tldr-history-copy" style="margin-left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;">Copy</button>
-        <button data-idx="${item.id}" class="tldr-history-delete" style="margin-left: 4px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: #fff; color: #ff3b30; cursor: pointer;">Delete</button>
+        <button data-idx="${item.id}" class="tldr-bookmarks-copy" style="margin-left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;">Copy</button>
+        <button data-idx="${item.id}" class="tldr-bookmarks-delete" style="margin-left: 4px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: #fff; color: #ff3b30; cursor: pointer;">Delete</button>
       </div>
     `).join('');
     // Add copy/delete handlers
-    historyList.querySelectorAll('.tldr-history-copy').forEach(btn => {
-      btn.onclick = () => {
+    bookmarksList.querySelectorAll('.tldr-bookmarks-copy').forEach(btn => {
+      btn.onclick = async () => {
         const idx = btn.getAttribute('data-idx');
-        const arr = getHistory();
+        const arr = await getBookmarks();
         const item = arr.find(x => x.id == idx);
         if (item) navigator.clipboard.writeText(item.summary);
         // Show feedback
-        const feedback = document.getElementById('tldr-history-feedback');
+        const feedback = document.getElementById('tldr-bookmarks-feedback');
         if (feedback) {
           feedback.textContent = 'Copied!';
           setTimeout(() => { feedback.textContent = ''; }, 1200);
         }
       };
     });
-    historyList.querySelectorAll('.tldr-history-delete').forEach(btn => {
-      btn.onclick = () => {
+    bookmarksList.querySelectorAll('.tldr-bookmarks-delete').forEach(btn => {
+      btn.onclick = async () => {
         const idx = btn.getAttribute('data-idx');
-        let arr = getHistory();
+        let arr = await getBookmarks();
         arr = arr.filter(x => x.id != idx);
-        setHistory(arr);
-        renderHistory();
+        await setBookmarks(arr);
+        renderBookmarks();
         // Show feedback
-        const feedback = document.getElementById('tldr-history-feedback');
+        const feedback = document.getElementById('tldr-bookmarks-feedback');
         if (feedback) {
           feedback.textContent = 'Removed!';
           setTimeout(() => { feedback.textContent = ''; }, 1200);
@@ -565,27 +565,27 @@ function setupFloatingUIHandlers() {
       };
     });
   }
-  if (historyBtn && historyModal && historyClose) {
-    historyBtn.onclick = () => {
-      renderHistory();
+  if (bookmarksBtn && bookmarksModal && bookmarksClose) {
+    bookmarksBtn.onclick = () => {
+      renderBookmarks();
       // Set solid background for modal based on theme
       const win = document.getElementById('tldr-floating-window');
-      const modalContent = historyModal.querySelector('div');
+      const modalContent = bookmarksModal.querySelector('div');
       if (win && modalContent) {
         modalContent.style.background = win.classList.contains('tldr-theme-dark') ? '#232325' : '#fff';
       }
-      historyModal.style.display = 'flex';
+      bookmarksModal.style.display = 'flex';
     };
-    historyClose.onclick = () => {
-      historyModal.style.display = 'none';
+    bookmarksClose.onclick = () => {
+      bookmarksModal.style.display = 'none';
     };
-    historyModal.onclick = (e) => {
-      if (e.target === historyModal) historyModal.style.display = 'none';
+    bookmarksModal.onclick = (e) => {
+      if (e.target === bookmarksModal) bookmarksModal.style.display = 'none';
     };
   }
   if (saveBtn) {
-    saveBtn.onclick = () => {
-      const arr = getHistory();
+    saveBtn.onclick = async () => {
+      const arr = await getBookmarks();
       const url = window.location.href;
       const title = document.title;
       const summary = document.getElementById('summary-text').innerText.replace(/^Summary\s*/, '');
@@ -599,8 +599,8 @@ function setupFloatingUIHandlers() {
         language,
         timestamp: Date.now()
       });
-      setHistory(arr);
-      saveBtn.textContent = 'Saved!';
+      await setBookmarks(arr);
+      saveBtn.textContent = 'Bookmarked!';
       setTimeout(() => { saveBtn.textContent = 'Save'; }, 1200);
     };
   }
@@ -951,4 +951,45 @@ injectFloatingWindow = function() {
   setupThemeSelector();
   setupTranslucencyControl();
   setupColorSelector();
-}; 
+};
+
+// Migrate old history to bookmarks if needed
+if (localStorage.getItem('tldr-history') && !localStorage.getItem('tldr-bookmarks')) {
+  localStorage.setItem('tldr-bookmarks', localStorage.getItem('tldr-history'));
+  localStorage.removeItem('tldr-history');
+}
+
+// Utility functions for Chrome storage
+async function getChromeStorage(key, defaultValue) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([key], (result) => {
+      resolve(result[key] !== undefined ? result[key] : defaultValue);
+    });
+  });
+}
+async function setChromeStorage(key, value) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [key]: value }, resolve);
+  });
+}
+
+// Migrate old localStorage to chrome.storage.local if needed
+(async () => {
+  if (localStorage.getItem('tldr-bookmarks')) {
+    const bookmarks = JSON.parse(localStorage.getItem('tldr-bookmarks'));
+    await setChromeStorage('tldr-bookmarks', bookmarks);
+    localStorage.removeItem('tldr-bookmarks');
+  }
+  if (localStorage.getItem('tldr-color')) {
+    await setChromeStorage('tldr-color', localStorage.getItem('tldr-color'));
+    localStorage.removeItem('tldr-color');
+  }
+  if (localStorage.getItem('tldr-theme')) {
+    await setChromeStorage('tldr-theme', localStorage.getItem('tldr-theme'));
+    localStorage.removeItem('tldr-theme');
+  }
+  if (localStorage.getItem('tldr-translucency')) {
+    await setChromeStorage('tldr-translucency', localStorage.getItem('tldr-translucency'));
+    localStorage.removeItem('tldr-translucency');
+  }
+})(); 
