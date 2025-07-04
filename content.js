@@ -347,7 +347,10 @@ async function renderFloatingUI() {
     <div id="summary-container" style="margin-bottom: 16px;">
       <div style="display: flex; align-items: center; justify-content: space-between;">
         <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: var(--tldr-text);">Summary</h3>
-        <button id="tldr-save-btn" style="padding: 4px 12px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer; margin-left: 8px;">Save</button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="tldr-model-btn" style="padding: 4px 12px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;" title="Choose AI Model">Model</button>
+          <button id="tldr-save-btn" style="padding: 4px 12px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;">Save</button>
+        </div>
       </div>
       <div id="summary-text"><p style="color: #86868b; font-style: italic;">Summary will appear here.</p></div>
     </div>
@@ -386,6 +389,18 @@ async function renderFloatingUI() {
         <div id="tldr-bookmarks-list" style="flex: 1 1 auto; min-width: 0; word-break: break-word;"></div>
       </div>
     </div>
+    <div id="tldr-model-modal" style="display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 1000; justify-content: center; align-items: center; display: flex;">
+      <div style="background: var(--tldr-bg); color: var(--tldr-text); border-radius: 12px; width: min(90%, 480px); max-width: 100%; height: auto; max-height: 80%; overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.18); padding: 2vw; position: relative; display: flex; flex-direction: column; word-break: break-word;">
+        <button id="tldr-model-close" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 20px; color: var(--tldr-text); cursor: pointer;">&times;</button>
+        <h2 style="margin-top: 0; font-size: 1.2em;">Choose AI Model</h2>
+        <div style="margin-bottom: 16px; font-size: 14px; color: var(--tldr-placeholder-color);">
+          Select a free Hugging Face model for summarization. Different models may produce different results.
+        </div>
+        <div id="tldr-model-list" style="flex: 1 1 auto; min-width: 0; word-break: break-word; max-height: 300px; overflow-y: auto;">
+          <!-- Model options will be populated here -->
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -396,7 +411,60 @@ function setupFloatingUIHandlers() {
   let lastSummarizedArticle = '';
   let hasTriedRefresh = false;
 
-  const MODEL_ID = 'sshleifer/distilbart-cnn-12-6';
+  // Available free Hugging Face models for summarization
+  const SUMMARIZATION_MODELS = [
+    {
+      id: 'sshleifer/distilbart-cnn-12-6',
+      name: 'DistilBART CNN (Fast)',
+      description: 'Fast, lightweight model good for quick summaries',
+      category: 'Fast'
+    },
+    {
+      id: 'facebook/bart-large-cnn',
+      name: 'BART Large CNN (Balanced)',
+      description: 'High quality summaries with good balance of speed and accuracy',
+      category: 'Balanced'
+    },
+    {
+      id: 'google/pegasus-xsum',
+      name: 'PEGASUS XSum (Extractive)',
+      description: 'Extractive summarization, good for factual content',
+      category: 'Extractive'
+    },
+    {
+      id: 'microsoft/DialoGPT-medium',
+      name: 'DialoGPT Medium (Conversational)',
+      description: 'Good for conversational or opinion pieces',
+      category: 'Conversational'
+    },
+    {
+      id: 't5-small',
+      name: 'T5 Small (Versatile)',
+      description: 'Versatile model for various types of content',
+      category: 'Versatile'
+    },
+    {
+      id: 'facebook/bart-base',
+      name: 'BART Base (Reliable)',
+      description: 'Reliable baseline model for general summarization',
+      category: 'Reliable'
+    },
+    {
+      id: 'sshleifer/distilbart-xsum-12-3',
+      name: 'DistilBART XSum (Abstractive)',
+      description: 'Abstractive summarization, good for news articles',
+      category: 'Abstractive'
+    },
+    {
+      id: 'google/pegasus-cnn_dailymail',
+      name: 'PEGASUS CNN DailyMail (News)',
+      description: 'Optimized for news articles and daily content',
+      category: 'News'
+    }
+  ];
+
+  let currentModelId = 'sshleifer/distilbart-cnn-12-6'; // Default model
+  
   const TRANSLATE_MODEL_MAP = {
     'cn': 'Helsinki-NLP/opus-mt-en-zh',
     'es': 'Helsinki-NLP/opus-mt-en-es',
@@ -454,7 +522,7 @@ function setupFloatingUIHandlers() {
   async function summarizeWithHuggingFace(text) {
     const apiKey = HUGGINGFACE_API_KEY;
     const response = await fetch(
-      `https://api-inference.huggingface.co/models/${MODEL_ID}`,
+      `https://api-inference.huggingface.co/models/${currentModelId}`,
       {
         method: 'POST',
         headers: {
@@ -534,6 +602,12 @@ function setupFloatingUIHandlers() {
   const bookmarksModal = document.getElementById('tldr-bookmarks-modal');
   const bookmarksList = document.getElementById('tldr-bookmarks-list');
   const bookmarksClose = document.getElementById('tldr-bookmarks-close');
+  
+  // Model selection elements
+  const modelBtn = document.getElementById('tldr-model-btn');
+  const modelModal = document.getElementById('tldr-model-modal');
+  const modelList = document.getElementById('tldr-model-list');
+  const modelClose = document.getElementById('tldr-model-close');
 
   async function getBookmarks() {
     const bookmarks = await getChromeStorage('tldr-bookmarks', []);
@@ -544,6 +618,69 @@ function setupFloatingUIHandlers() {
     console.log('Saving bookmarks:', arr);
     await setChromeStorage('tldr-bookmarks', arr);
     console.log('Bookmarks saved successfully');
+  }
+  
+  // Model selection functions
+  async function getCurrentModel() {
+    return await getChromeStorage('tldr-current-model', 'sshleifer/distilbart-cnn-12-6');
+  }
+  
+  async function setCurrentModel(modelId) {
+    await setChromeStorage('tldr-current-model', modelId);
+    currentModelId = modelId;
+  }
+  
+  async function renderModelList() {
+    const currentModel = await getCurrentModel();
+    const groupedModels = {};
+    
+    // Group models by category
+    SUMMARIZATION_MODELS.forEach(model => {
+      if (!groupedModels[model.category]) {
+        groupedModels[model.category] = [];
+      }
+      groupedModels[model.category].push(model);
+    });
+    
+    modelList.innerHTML = '';
+    
+    Object.keys(groupedModels).forEach(category => {
+      const categoryDiv = document.createElement('div');
+      categoryDiv.style.marginBottom = '16px';
+      categoryDiv.innerHTML = `<h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: var(--tldr-text);">${category}</h3>`;
+      
+      groupedModels[category].forEach(model => {
+        const modelDiv = document.createElement('div');
+        const isSelected = model.id === currentModel;
+        modelDiv.style.cssText = `
+          padding: 12px;
+          border: 1px solid ${isSelected ? 'var(--tldr-accent)' : '#d2d2d7'};
+          border-radius: 8px;
+          margin-bottom: 8px;
+          cursor: pointer;
+          background: ${isSelected ? 'var(--tldr-accent)' : 'transparent'};
+          color: ${isSelected ? '#fff' : 'var(--tldr-text)'};
+          transition: all 0.2s;
+        `;
+        modelDiv.innerHTML = `
+          <div style="font-weight: 600; margin-bottom: 4px;">${model.name}</div>
+          <div style="font-size: 12px; opacity: 0.8;">${model.description}</div>
+        `;
+        
+        modelDiv.onclick = async () => {
+          await setCurrentModel(model.id);
+          renderModelList();
+          modelBtn.textContent = model.name.split(' ')[0]; // Show short name on button
+          setTimeout(() => {
+            modelModal.style.display = 'none';
+          }, 500);
+        };
+        
+        categoryDiv.appendChild(modelDiv);
+      });
+      
+      modelList.appendChild(categoryDiv);
+    });
   }
   async function renderBookmarks() {
     const arr = await getBookmarks();
@@ -612,6 +749,26 @@ function setupFloatingUIHandlers() {
       if (e.target === bookmarksModal) bookmarksModal.style.display = 'none';
     };
   }
+  
+  // Model selection handlers
+  if (modelBtn && modelModal && modelClose) {
+    modelBtn.onclick = async () => {
+      await renderModelList();
+      // Set solid background for modal based on theme
+      const win = document.getElementById('tldr-floating-window');
+      const modalContent = modelModal.querySelector('div');
+      if (win && modalContent) {
+        modalContent.style.background = win.classList.contains('tldr-theme-dark') ? '#232325' : '#fff';
+      }
+      modelModal.style.display = 'flex';
+    };
+    modelClose.onclick = () => {
+      modelModal.style.display = 'none';
+    };
+    modelModal.onclick = (e) => {
+      if (e.target === modelModal) modelModal.style.display = 'none';
+    };
+  }
   if (saveBtn) {
     saveBtn.onclick = async () => {
       const arr = await getBookmarks();
@@ -634,6 +791,15 @@ function setupFloatingUIHandlers() {
     };
   }
 
+  // Initialize current model
+  (async () => {
+    currentModelId = await getCurrentModel();
+    const currentModel = SUMMARIZATION_MODELS.find(m => m.id === currentModelId);
+    if (currentModel && modelBtn) {
+      modelBtn.textContent = currentModel.name.split(' ')[0]; // Show short name
+    }
+  })();
+  
   refreshBtn.addEventListener('click', () => {
     // Hide the initial prompt when Refresh is clicked
     const prompt = document.getElementById('tldr-initial-prompt');
@@ -1001,9 +1167,11 @@ injectFloatingWindow = async function() {
   await setupThemeSelector();
   await setupTranslucencyControl();
   await setupColorSelector();
-  // Always hide bookmarks modal on load
+  // Always hide modals on load
   const bookmarksModal = document.getElementById('tldr-bookmarks-modal');
+  const modelModal = document.getElementById('tldr-model-modal');
   if (bookmarksModal) bookmarksModal.style.display = 'none';
+  if (modelModal) modelModal.style.display = 'none';
 };
 
 // Migrate old history to bookmarks if needed (Chrome storage version)
