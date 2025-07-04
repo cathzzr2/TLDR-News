@@ -247,6 +247,7 @@ function renderFloatingUI() {
             <option value="dark">Dark</option>
           </select>
         </div>
+        <button id="tldr-history-btn" style="margin-left: 8px; padding: 4px 12px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;">History</button>
       </div>
     </div>
     <div id="tldr-initial-prompt" style="margin-bottom: 8px; color: var(--tldr-accent); font-style: italic; text-align: center; font-size: 12px; line-height: 1.2; width: 100%; box-sizing: border-box; word-break: break-word;">
@@ -319,7 +320,11 @@ function renderFloatingUI() {
       ">Summarize</button>
     </div>
     <div id="summary-container" style="margin-bottom: 16px;">
-      <p style="color: #86868b; font-style: italic;">Summary will appear here.</p>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: var(--tldr-text);">Summary</h3>
+        <button id="tldr-save-btn" style="padding: 4px 12px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer; margin-left: 8px;">Save</button>
+      </div>
+      <div id="summary-text"><p style="color: #86868b; font-style: italic;">Summary will appear here.</p></div>
     </div>
     <div id="summary-actions" style="display: flex; gap: 8px;">
       <button id="copy-summary-btn" style="
@@ -348,6 +353,15 @@ function renderFloatingUI() {
       " title="Share summary">Share</button>
     </div>
   `;
+  content.innerHTML += `
+    <div id="tldr-history-modal" style="display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 1000; justify-content: center; align-items: center; display: flex;">
+      <div style="background: var(--tldr-bg); color: var(--tldr-text); border-radius: 12px; width: min(90%, 480px); max-width: 100%; height: auto; max-height: 80%; overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.18); padding: 2vw; position: relative; display: flex; flex-direction: column; word-break: break-word;">
+        <button id="tldr-history-close" style="position: absolute; top: 12px; right: 12px; background: none; border: none; font-size: 20px; color: var(--tldr-text); cursor: pointer;">&times;</button>
+        <h2 style="margin-top: 0; font-size: 1.2em;">History</h2>
+        <div id="tldr-history-list" style="flex: 1 1 auto; min-width: 0; word-break: break-word;"></div>
+      </div>
+    </div>
+  `;
 }
 
 function setupFloatingUIHandlers() {
@@ -371,9 +385,9 @@ function setupFloatingUIHandlers() {
     }
   }
   function showSummary(summary) {
-    const container = document.getElementById('summary-container');
+    const container = document.getElementById('summary-text');
     if (container) {
-      container.innerHTML = `<h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #1d1d1f;">Summary</h3><p style="margin: 0; line-height: 1.5; color: #1d1d1f;">${summary}</p>`;
+      container.innerHTML = `<p style="margin: 0; line-height: 1.5; color: var(--tldr-text);">${summary}</p>`;
     }
   }
   function showError(msg) {
@@ -490,6 +504,106 @@ function setupFloatingUIHandlers() {
   const shareBtn = document.getElementById('share-summary-btn');
   const lengthSelect = document.getElementById('summary-length');
   const languageSelect = document.getElementById('summary-language');
+  const historyBtn = document.getElementById('tldr-history-btn');
+  const saveBtn = document.getElementById('tldr-save-btn');
+  const historyModal = document.getElementById('tldr-history-modal');
+  const historyList = document.getElementById('tldr-history-list');
+  const historyClose = document.getElementById('tldr-history-close');
+
+  function getHistory() {
+    return JSON.parse(localStorage.getItem('tldr-history') || '[]');
+  }
+  function setHistory(arr) {
+    localStorage.setItem('tldr-history', JSON.stringify(arr));
+  }
+  function renderHistory() {
+    const arr = getHistory();
+    // Add a feedback message area at the top
+    historyList.innerHTML = '<div id="tldr-history-feedback" style="min-height: 18px; font-size: 13px; color: var(--tldr-accent); margin-bottom: 6px;"></div>';
+    if (!arr.length) {
+      historyList.innerHTML += '<p style="color: #86868b;">No saved summaries yet.</p>';
+      return;
+    }
+    historyList.innerHTML += arr.map(item => `
+      <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 2px;">${item.title || item.url}</div>
+        <div style="font-size: 12px; color: #86868b; margin-bottom: 2px;">${item.language} &middot; ${new Date(item.timestamp).toLocaleString()}</div>
+        <div style="font-size: 13px; margin-bottom: 4px;">${item.summary}</div>
+        <a href="${item.url}" target="_blank" style="font-size: 12px; color: var(--tldr-accent); text-decoration: underline;">Open Article</a>
+        <button data-idx="${item.id}" class="tldr-history-copy" style="margin-left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: var(--tldr-btn-bg); color: var(--tldr-btn-color); cursor: pointer;">Copy</button>
+        <button data-idx="${item.id}" class="tldr-history-delete" style="margin-left: 4px; font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid #d2d2d7; background: #fff; color: #ff3b30; cursor: pointer;">Delete</button>
+      </div>
+    `).join('');
+    // Add copy/delete handlers
+    historyList.querySelectorAll('.tldr-history-copy').forEach(btn => {
+      btn.onclick = () => {
+        const idx = btn.getAttribute('data-idx');
+        const arr = getHistory();
+        const item = arr.find(x => x.id == idx);
+        if (item) navigator.clipboard.writeText(item.summary);
+        // Show feedback
+        const feedback = document.getElementById('tldr-history-feedback');
+        if (feedback) {
+          feedback.textContent = 'Copied!';
+          setTimeout(() => { feedback.textContent = ''; }, 1200);
+        }
+      };
+    });
+    historyList.querySelectorAll('.tldr-history-delete').forEach(btn => {
+      btn.onclick = () => {
+        const idx = btn.getAttribute('data-idx');
+        let arr = getHistory();
+        arr = arr.filter(x => x.id != idx);
+        setHistory(arr);
+        renderHistory();
+        // Show feedback
+        const feedback = document.getElementById('tldr-history-feedback');
+        if (feedback) {
+          feedback.textContent = 'Removed!';
+          setTimeout(() => { feedback.textContent = ''; }, 1200);
+        }
+      };
+    });
+  }
+  if (historyBtn && historyModal && historyClose) {
+    historyBtn.onclick = () => {
+      renderHistory();
+      // Set solid background for modal based on theme
+      const win = document.getElementById('tldr-floating-window');
+      const modalContent = historyModal.querySelector('div');
+      if (win && modalContent) {
+        modalContent.style.background = win.classList.contains('tldr-theme-dark') ? '#232325' : '#fff';
+      }
+      historyModal.style.display = 'flex';
+    };
+    historyClose.onclick = () => {
+      historyModal.style.display = 'none';
+    };
+    historyModal.onclick = (e) => {
+      if (e.target === historyModal) historyModal.style.display = 'none';
+    };
+  }
+  if (saveBtn) {
+    saveBtn.onclick = () => {
+      const arr = getHistory();
+      const url = window.location.href;
+      const title = document.title;
+      const summary = document.getElementById('summary-text').innerText.replace(/^Summary\s*/, '');
+      const language = document.getElementById('summary-language')?.value || 'en';
+      if (!summary || summary === 'Summary will appear here.') return;
+      arr.push({
+        id: Date.now(),
+        url,
+        title,
+        summary,
+        language,
+        timestamp: Date.now()
+      });
+      setHistory(arr);
+      saveBtn.textContent = 'Saved!';
+      setTimeout(() => { saveBtn.textContent = 'Save'; }, 1200);
+    };
+  }
 
   refreshBtn.addEventListener('click', () => {
     // Hide the initial prompt when Refresh is clicked
@@ -550,7 +664,7 @@ function setupFloatingUIHandlers() {
   });
 
   copyBtn.addEventListener('click', () => {
-    const summary = document.getElementById('summary-container').innerText.replace(/^Summary\s*/, '');
+    const summary = document.getElementById('summary-text').innerText.replace(/^Summary\s*/, '');
     if (summary) {
       navigator.clipboard.writeText(summary).then(() => {
         copyBtn.textContent = 'Copied!';
@@ -560,7 +674,7 @@ function setupFloatingUIHandlers() {
   });
 
   shareBtn.addEventListener('click', () => {
-    const summary = document.getElementById('summary-container').innerText.replace(/^Summary\s*/, '');
+    const summary = document.getElementById('summary-text').innerText.replace(/^Summary\s*/, '');
     if (summary) {
       if (navigator.share) {
         navigator.share({ text: summary, title: 'TL;DR News Summary' });
