@@ -231,14 +231,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-function renderFloatingUI() {
+async function renderFloatingUI() {
   const content = document.getElementById('tldr-floating-content');
   if (!content) return;
-  // Get saved translucency or default to 0.95
-  const savedTrans = parseFloat(localStorage.getItem('tldr-translucency') || '0.95');
+  
+  // Load saved settings from Chrome storage
+  const savedTrans = await getChromeStorage('tldr-translucency', 0.95);
+  const savedColor = await getChromeStorage('tldr-color', 'blue');
+  
   const opacityPercent = Math.round(savedTrans * 100);
   const translucencyPercent = 100 - opacityPercent;
-  const savedColor = localStorage.getItem('tldr-color') || 'blue';
+  
   const colorOptions = [
     { value: 'blue', label: 'Blue' },
     { value: 'grey', label: 'Grey' },
@@ -533,10 +536,14 @@ function setupFloatingUIHandlers() {
   const bookmarksClose = document.getElementById('tldr-bookmarks-close');
 
   async function getBookmarks() {
-    return await getChromeStorage('tldr-bookmarks', []);
+    const bookmarks = await getChromeStorage('tldr-bookmarks', []);
+    console.log('Retrieved bookmarks:', bookmarks);
+    return bookmarks;
   }
   async function setBookmarks(arr) {
+    console.log('Saving bookmarks:', arr);
     await setChromeStorage('tldr-bookmarks', arr);
+    console.log('Bookmarks saved successfully');
   }
   async function renderBookmarks() {
     const arr = await getBookmarks();
@@ -722,20 +729,24 @@ function applyTldrTheme(theme) {
   win.classList.add('tldr-theme-' + finalTheme);
 }
 
-function setupThemeSelector() {
+async function setupThemeSelector() {
   const select = document.getElementById('tldr-theme-select');
   if (!select) return;
-  // Load from localStorage or default to system
-  const saved = localStorage.getItem('tldr-theme') || 'system';
+  
+  // Load from Chrome storage or default to system
+  const saved = await getChromeStorage('tldr-theme', 'system');
   select.value = saved;
   applyTldrTheme(saved);
-  select.addEventListener('change', () => {
-    localStorage.setItem('tldr-theme', select.value);
+  
+  select.addEventListener('change', async () => {
+    await setChromeStorage('tldr-theme', select.value);
     applyTldrTheme(select.value);
   });
+  
   // Listen for system theme changes if system is selected
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-    if ((localStorage.getItem('tldr-theme') || 'system') === 'system') {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
+    const currentTheme = await getChromeStorage('tldr-theme', 'system');
+    if (currentTheme === 'system') {
       applyTldrTheme('system');
     }
   });
@@ -927,19 +938,24 @@ function injectTldrThemeStyles() {
   document.head.appendChild(style);
 }
 
-function setupTranslucencyControl() {
+async function setupTranslucencyControl() {
   const win = document.getElementById('tldr-floating-window');
   const slider = document.getElementById('tldr-translucency-slider');
   const valueSpan = document.getElementById('tldr-translucency-value');
   if (!win || !slider || !valueSpan) return;
-  function setTranslucency(val) {
+  
+  async function setTranslucency(val) {
     const opacity = Math.round(val) / 100;
     win.style.setProperty('--tldr-bg-opacity', opacity);
-    localStorage.setItem('tldr-translucency', opacity);
+    await setChromeStorage('tldr-translucency', opacity);
     valueSpan.textContent = `${100 - Math.round(opacity * 100)}%`;
   }
-  // Set initial
-  setTranslucency(slider.value);
+  
+  // Load saved translucency from Chrome storage
+  const savedTrans = await getChromeStorage('tldr-translucency', 0.95);
+  const opacityPercent = Math.round(savedTrans * 100);
+  slider.value = opacityPercent;
+  setTranslucency(opacityPercent);
   slider.addEventListener('input', () => setTranslucency(slider.value));
 }
 
@@ -950,15 +966,17 @@ function applyTldrColor(color) {
   win.classList.add('tldr-color-' + color);
 }
 
-function setupColorSelector() {
+async function setupColorSelector() {
   const select = document.getElementById('tldr-color-select');
   if (!select) return;
-  // Load from localStorage or default to blue
-  const saved = localStorage.getItem('tldr-color') || 'blue';
+  
+  // Load from Chrome storage or default to blue
+  const saved = await getChromeStorage('tldr-color', 'blue');
   select.value = saved;
   applyTldrColor(saved);
-  select.addEventListener('change', () => {
-    localStorage.setItem('tldr-color', select.value);
+  
+  select.addEventListener('change', async () => {
+    await setChromeStorage('tldr-color', select.value);
     applyTldrColor(select.value);
   });
 }
@@ -978,21 +996,25 @@ injectFloatingWindow = async function() {
   applyTldrColor(savedColor);
   if (win) win.style.setProperty('--tldr-bg-opacity', savedTrans);
   injectTldrThemeStyles();
-  renderFloatingUI();
+  await renderFloatingUI();
   setupFloatingUIHandlers();
-  setupThemeSelector();
-  setupTranslucencyControl();
-  setupColorSelector();
+  await setupThemeSelector();
+  await setupTranslucencyControl();
+  await setupColorSelector();
   // Always hide bookmarks modal on load
   const bookmarksModal = document.getElementById('tldr-bookmarks-modal');
   if (bookmarksModal) bookmarksModal.style.display = 'none';
 };
 
-// Migrate old history to bookmarks if needed
-if (localStorage.getItem('tldr-history') && !localStorage.getItem('tldr-bookmarks')) {
-  localStorage.setItem('tldr-bookmarks', localStorage.getItem('tldr-history'));
-  localStorage.removeItem('tldr-history');
-}
+// Migrate old history to bookmarks if needed (Chrome storage version)
+(async () => {
+  const oldHistory = await getChromeStorage('tldr-history', null);
+  const existingBookmarks = await getChromeStorage('tldr-bookmarks', []);
+  if (oldHistory && existingBookmarks.length === 0) {
+    await setChromeStorage('tldr-bookmarks', oldHistory);
+    await setChromeStorage('tldr-history', null);
+  }
+})();
 
 // Utility functions for Chrome storage
 async function getChromeStorage(key, defaultValue) {
@@ -1010,22 +1032,26 @@ async function setChromeStorage(key, value) {
 
 // Migrate old localStorage to chrome.storage.local if needed
 (async () => {
-  if (localStorage.getItem('tldr-bookmarks')) {
-    const bookmarks = JSON.parse(localStorage.getItem('tldr-bookmarks'));
-    await setChromeStorage('tldr-bookmarks', bookmarks);
-    localStorage.removeItem('tldr-bookmarks');
-  }
-  if (localStorage.getItem('tldr-color')) {
-    await setChromeStorage('tldr-color', localStorage.getItem('tldr-color'));
-    localStorage.removeItem('tldr-color');
-  }
-  if (localStorage.getItem('tldr-theme')) {
-    await setChromeStorage('tldr-theme', localStorage.getItem('tldr-theme'));
-    localStorage.removeItem('tldr-theme');
-  }
-  if (localStorage.getItem('tldr-translucency')) {
-    await setChromeStorage('tldr-translucency', localStorage.getItem('tldr-translucency'));
-    localStorage.removeItem('tldr-translucency');
+  try {
+    if (localStorage.getItem('tldr-bookmarks')) {
+      const bookmarks = JSON.parse(localStorage.getItem('tldr-bookmarks'));
+      await setChromeStorage('tldr-bookmarks', bookmarks);
+      localStorage.removeItem('tldr-bookmarks');
+    }
+    if (localStorage.getItem('tldr-color')) {
+      await setChromeStorage('tldr-color', localStorage.getItem('tldr-color'));
+      localStorage.removeItem('tldr-color');
+    }
+    if (localStorage.getItem('tldr-theme')) {
+      await setChromeStorage('tldr-theme', localStorage.getItem('tldr-theme'));
+      localStorage.removeItem('tldr-theme');
+    }
+    if (localStorage.getItem('tldr-translucency')) {
+      await setChromeStorage('tldr-translucency', localStorage.getItem('tldr-translucency'));
+      localStorage.removeItem('tldr-translucency');
+    }
+  } catch (error) {
+    console.error('Error migrating localStorage to Chrome storage:', error);
   }
 })();
 
