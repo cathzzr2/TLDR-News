@@ -41,7 +41,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       showArticle(extractedArticle.substring(0, 1000) + (extractedArticle.length > 1000 ? '...' : ''));
       showSummary('Click "Summarize" to generate a summary.');
     } else {
-      showError('To summarize, please click the Refresh button to load the article content.');
+      if (!hasLoadedArticle) {
+        showError('To summarize, please click the Refresh button to load the article content.');
+      } else {
+        showArticle('No article content found.');
+        showSummary('');
+      }
       hasLoadedArticle = false;
       cachedEnglishSummary = '';
       lastSummarizedArticle = '';
