@@ -1,7 +1,9 @@
 // content.js
 // This script extracts the main article content from news pages using Readability.js and sends it to the popup on request.
 
-let extractedMainText = '';
+if (typeof extractedMainText === 'undefined') {
+  var extractedMainText = '';
+}
 
 function extractWithReadability() {
   try {
@@ -65,4 +67,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       mainText: extractedMainText
     });
   }
-}); 
+});
+
+async function summarizeWithHuggingFace(text) {
+  const apiKey = '***REMOVED***'; // <-- Replace with your token
+  const response = await fetch(
+    'https://api-inference.huggingface.co/models/facebook/bart-large-cnn',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ inputs: text })
+    }
+  );
+  const data = await response.json();
+  if (Array.isArray(data) && data[0]?.summary_text) {
+    return data[0].summary_text;
+  } else if (data.error) {
+    throw new Error(data.error);
+  } else {
+    throw new Error('Unexpected response from Hugging Face API');
+  }
+} 

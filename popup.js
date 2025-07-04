@@ -38,7 +38,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       showArticle(extractedArticle.substring(0, 1000) + (extractedArticle.length > 1000 ? '...' : ''));
       showSummary('Click "Summarize" to generate a summary.');
     } else {
-      showError('No main article content found on this page.');
+      if (!hasLoadedArticle) {
+        showError('To summarize, please click the Refresh button to load the article content.');
+      } else {
+        showError('Could not load article content. Please refresh the page and try again.');
+      }
       hasLoadedArticle = false;
     }
   }
@@ -74,38 +78,107 @@ const summarizeBtn = document.getElementById('summarize-btn');
 const lengthSelect = document.getElementById('summary-length');
 const languageSelect = document.getElementById('summary-language');
 
-summarizeBtn.addEventListener('click', () => {
+const MODEL_ID = 'sshleifer/distilbart-cnn-12-6'; // model choice
+
+function splitIntoSentenceChunks(text, sentencesPerChunk = 10) {
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  const chunks = [];
+  for (let i = 0; i < sentences.length; i += sentencesPerChunk) {
+    chunks.push(sentences.slice(i, i + sentencesPerChunk).join(' '));
+  }
+  return chunks;
+}
+
+async function translateText(text, targetLang) {
+  const CORS_PROXY = 'https://corsproxy.io/?';
+  const API_URL = CORS_PROXY + 'https://libretranslate.de/translate';
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        q: text,
+        source: 'en',
+        target: targetLang,
+        format: 'text'
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    if (data && data.translatedText) {
+      return data.translatedText;
+    } else {
+      console.error('Translation API response:', JSON.stringify(data));
+      throw new Error('Translation API did not return translatedText.');
+    }
+  } catch (err) {
+    console.error('Translation error:', err);
+    throw err;
+  }
+}
+
+async function summarizeWithHuggingFace(text) {
+  const apiKey = HUGGINGFACE_API_KEY;
+  const response = await fetch(
+    `https://api-inference.huggingface.co/models/${MODEL_ID}`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ inputs: text })
+    }
+  );
+  const data = await response.json();
+  if (Array.isArray(data) && data[0]?.summary_text) {
+    return data[0].summary_text;
+  } else if (data.error) {
+    throw new Error(data.error);
+  } else {
+    throw new Error('Unexpected response from Hugging Face API');
+  }
+}
+
+async function summarizeLongTextWithHuggingFace(text) {
+  const sentenceChunks = splitIntoSentenceChunks(text, 10); // 10 sentences per chunk
+  let summaries = [];
+  for (let idx = 0; idx < sentenceChunks.length; idx++) {
+    const chunk = sentenceChunks[idx];
+    showSummary(`Summarizing chunk ${idx + 1} of ${sentenceChunks.length}...`);
+    try {
+      const summary = await summarizeWithHuggingFace(chunk);
+      summaries.push(summary);
+    } catch (e) {
+      summaries.push('[Error summarizing chunk]');
+    }
+  }
+  // Optionally, summarize the combined summary if it's still long
+  const combinedSummary = summaries.join(' ');
+  if (sentenceChunks.length > 1) {
+    showSummary('Summarizing combined summary...');
+    try {
+      return await summarizeWithHuggingFace(combinedSummary);
+    } catch (e) {
+      return combinedSummary;
+    }
+  } else {
+    return combinedSummary;
+  }
+}
+
+// Summarize button logic (AI-powered, chunked by sentences)
+summarizeBtn.addEventListener('click', async () => {
   if (!hasLoadedArticle || !extractedArticle || extractedArticle.length < 50) {
     showSummary('Please refresh to load article content before summarizing.');
     return;
   }
-  // Get user options
-  const length = lengthSelect.value;
-  const language = languageSelect.value;
-  // Determine number of sentences based on length
-  let numSentences = 2;
-  if (length === 'short') numSentences = 1;
-  else if (length === 'medium') numSentences = 3;
-  else if (length === 'detailed') numSentences = 6;
-  // Simple placeholder: show first N sentences as the summary
-  const sentences = extractedArticle.match(/[^.!?]+[.!?]+/g);
-  let summary = '';
-  if (sentences && sentences.length > 0) {
-    summary = sentences.slice(0, numSentences).join(' ');
-  } else {
-    summary = extractedArticle.substring(0, 200) + (extractedArticle.length > 200 ? '...' : '');
+  showSummary('Summarizing with AI...');
+  try {
+    const summary = await summarizeLongTextWithHuggingFace(extractedArticle);
+    showSummary(summary);
+  } catch (e) {
+    showSummary('AI summarization failed: ' + e.message);
   }
-  // Simulate language selection (real translation API can be added later)
-  let langLabel = '';
-  switch (language) {
-    case 'cn': langLabel = '[Chinese] '; break;
-    case 'es': langLabel = '[Spanish] '; break;
-    case 'fr': langLabel = '[French] '; break;
-    case 'de': langLabel = '[German] '; break;
-    case 'ja': langLabel = '[Japanese] '; break;
-    default: langLabel = '';
-  }
-  showSummary(langLabel + summary);
 });
 
 // Copy & Share button logic
