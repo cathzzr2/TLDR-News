@@ -577,6 +577,7 @@ function setupFloatingUIHandlers() {
   async function getBookmarks() {
     const bookmarks = await getChromeStorage('tldr-bookmarks', []);
     console.log('Retrieved bookmarks:', bookmarks);
+    console.log('Bookmarks count:', bookmarks.length);
     return bookmarks;
   }
   async function setBookmarks(arr) {
@@ -635,7 +636,7 @@ function setupFloatingUIHandlers() {
         modelDiv.onclick = async () => {
           await setCurrentModel(model.id);
           renderModelList();
-          modelBtn.textContent = model.name.split(' ')[0]; // Show short name on button
+          modelBtn.textContent = model.name; // Show full name on button
           setTimeout(() => {
             modelModal.style.display = 'none';
           }, 500);
@@ -656,7 +657,7 @@ function setupFloatingUIHandlers() {
       return;
     }
     bookmarksList.innerHTML += arr.map(item => {
-      const modelName = item.model ? SUMMARIZATION_MODELS.find(m => m.id === item.model)?.name.split(' ')[0] || item.model : 'Unknown';
+      const modelName = item.model ? SUMMARIZATION_MODELS.find(m => m.id === item.model)?.name || item.model : 'Unknown';
       return `
         <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
           <div style="font-size: 13px; font-weight: 600; margin-bottom: 2px;">${item.title || item.url}</div>
@@ -767,7 +768,7 @@ function setupFloatingUIHandlers() {
     lastUsedModel = currentModelId;
     const currentModel = SUMMARIZATION_MODELS.find(m => m.id === currentModelId);
     if (currentModel && modelBtn) {
-      modelBtn.textContent = currentModel.name.split(' ')[0]; // Show short name
+      modelBtn.textContent = currentModel.name; // Show full name
     }
   })();
   
@@ -1154,11 +1155,19 @@ injectFloatingWindow = async function() {
 
 // Migrate old history to bookmarks if needed (Chrome storage version)
 (async () => {
-  const oldHistory = await getChromeStorage('tldr-history', null);
-  const existingBookmarks = await getChromeStorage('tldr-bookmarks', []);
-  if (oldHistory && existingBookmarks.length === 0) {
-    await setChromeStorage('tldr-bookmarks', oldHistory);
-    await setChromeStorage('tldr-history', null);
+  try {
+    const oldHistory = await getChromeStorage('tldr-history', null);
+    const existingBookmarks = await getChromeStorage('tldr-bookmarks', []);
+    console.log('Migration check - oldHistory:', oldHistory);
+    console.log('Migration check - existingBookmarks count:', existingBookmarks.length);
+    
+    if (oldHistory && existingBookmarks.length === 0) {
+      await setChromeStorage('tldr-bookmarks', oldHistory);
+      await setChromeStorage('tldr-history', null);
+      console.log('Migrated history to bookmarks');
+    }
+  } catch (error) {
+    console.error('Error in history migration:', error);
   }
 })();
 
@@ -1179,23 +1188,46 @@ async function setChromeStorage(key, value) {
 // Migrate old localStorage to chrome.storage.local if needed
 (async () => {
   try {
-    if (localStorage.getItem('tldr-bookmarks')) {
+    // Check if migration has already been done
+    const migrationDone = await getChromeStorage('tldr-migration-done', false);
+    if (migrationDone) {
+      console.log('Migration already completed, skipping');
+      return;
+    }
+    
+    console.log('Starting localStorage to Chrome storage migration...');
+    
+    // Only migrate bookmarks if Chrome storage is empty
+    const existingChromeBookmarks = await getChromeStorage('tldr-bookmarks', []);
+    if (localStorage.getItem('tldr-bookmarks') && existingChromeBookmarks.length === 0) {
       const bookmarks = JSON.parse(localStorage.getItem('tldr-bookmarks'));
       await setChromeStorage('tldr-bookmarks', bookmarks);
       localStorage.removeItem('tldr-bookmarks');
+      console.log('Migrated bookmarks from localStorage to Chrome storage');
     }
-    if (localStorage.getItem('tldr-color')) {
+    
+    // Only migrate other settings if they don't exist in Chrome storage
+    const existingColor = await getChromeStorage('tldr-color', null);
+    if (localStorage.getItem('tldr-color') && !existingColor) {
       await setChromeStorage('tldr-color', localStorage.getItem('tldr-color'));
       localStorage.removeItem('tldr-color');
     }
-    if (localStorage.getItem('tldr-theme')) {
+    
+    const existingTheme = await getChromeStorage('tldr-theme', null);
+    if (localStorage.getItem('tldr-theme') && !existingTheme) {
       await setChromeStorage('tldr-theme', localStorage.getItem('tldr-theme'));
       localStorage.removeItem('tldr-theme');
     }
-    if (localStorage.getItem('tldr-translucency')) {
+    
+    const existingTrans = await getChromeStorage('tldr-translucency', null);
+    if (localStorage.getItem('tldr-translucency') && !existingTrans) {
       await setChromeStorage('tldr-translucency', localStorage.getItem('tldr-translucency'));
       localStorage.removeItem('tldr-translucency');
     }
+    
+    // Mark migration as complete
+    await setChromeStorage('tldr-migration-done', true);
+    console.log('Migration completed successfully');
   } catch (error) {
     console.error('Error migrating localStorage to Chrome storage:', error);
   }
