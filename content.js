@@ -186,8 +186,11 @@ function injectFloatingWindow() {
   });
   document.addEventListener('mousemove', (e) => {
     if (isDragging) {
+      let newTop = e.clientY - offsetY;
+      // Clamp top so it cannot go above 10px
+      if (newTop < 10) newTop = 10;
       win.style.left = (e.clientX - offsetX) + 'px';
-      win.style.top = (e.clientY - offsetY) + 'px';
+      win.style.top = newTop + 'px';
       win.style.right = '';
     }
   });
