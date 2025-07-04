@@ -20,6 +20,9 @@ function showError(msg) {
 
 let extractedArticle = '';
 let hasLoadedArticle = false;
+let cachedEnglishSummary = '';
+let lastSummarizedArticle = '';
+let hasTriedRefresh = false;
 
 function promptRefresh() {
   showArticle('Please click the Refresh button above to load the article content.');
@@ -38,12 +41,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       showArticle(extractedArticle.substring(0, 1000) + (extractedArticle.length > 1000 ? '...' : ''));
       showSummary('Click "Summarize" to generate a summary.');
     } else {
-      if (!hasLoadedArticle) {
-        showError('To summarize, please click the Refresh button to load the article content.');
-      } else {
-        showError('Could not load article content. Please refresh the page and try again.');
-      }
+      showError('To summarize, please click the Refresh button to load the article content.');
       hasLoadedArticle = false;
+      cachedEnglishSummary = '';
+      lastSummarizedArticle = '';
     }
   }
 });
@@ -63,7 +64,7 @@ function requestMainTextOrInject(retry = false) {
         });
       } else if (chrome.runtime.lastError && retry) {
         // Still failed after injection
-        showError('Could not load article content. Please refresh the page and try again.');
+        showError('To summarize, please click the Refresh button to load the article content.');
       }
       // If no error, content script will send PAGE_MAIN_TEXT as usual
     });
@@ -179,30 +180,35 @@ function cleanSummaryFormatting(text) {
     .trim();
 }
 
-// Summarize button logic (AI-powered, chunked by sentences, with translation)
+// Summarize button logic (AI-powered, chunked by sentences, with translation and caching)
 summarizeBtn.addEventListener('click', async () => {
   if (!hasLoadedArticle || !extractedArticle || extractedArticle.length < 50) {
     showSummary('Please refresh to load article content before summarizing.');
     return;
   }
-  showSummary('Summarizing with AI...');
-  try {
-    const summary = await summarizeLongTextWithHuggingFace(extractedArticle);
-    const cleanedSummary = cleanSummaryFormatting(summary);
-    const language = languageSelect.value;
-    if (language !== 'en') {
-      showSummary('Translating summary...');
-      try {
-        const translated = await translateWithHuggingFace(cleanedSummary, language);
-        showSummary(cleanSummaryFormatting(translated));
-      } catch (e) {
-        showSummary('Translation failed. Showing English summary.\n' + cleanedSummary);
-      }
-    } else {
-      showSummary(cleanedSummary);
+  const language = languageSelect.value;
+  // Only re-summarize if the article has changed
+  if (extractedArticle !== lastSummarizedArticle) {
+    showSummary('Summarizing with AI...');
+    try {
+      const summary = await summarizeLongTextWithHuggingFace(extractedArticle);
+      cachedEnglishSummary = cleanSummaryFormatting(summary);
+      lastSummarizedArticle = extractedArticle;
+    } catch (e) {
+      showSummary('AI summarization failed: ' + e.message);
+      return;
     }
-  } catch (e) {
-    showSummary('AI summarization failed: ' + e.message);
+  }
+  if (language !== 'en') {
+    showSummary('Translating summary...');
+    try {
+      const translated = await translateWithHuggingFace(cachedEnglishSummary, language);
+      showSummary(cleanSummaryFormatting(translated));
+    } catch (e) {
+      showSummary('Translation failed. Showing English summary.\n' + cachedEnglishSummary);
+    }
+  } else {
+    showSummary(cachedEnglishSummary);
   }
 });
 
@@ -242,6 +248,7 @@ shareBtn.addEventListener('click', () => {
 const refreshBtn = document.getElementById('refresh-btn');
 
 refreshBtn.addEventListener('click', () => {
+  hasTriedRefresh = true;
   showArticle('Refreshing article...');
   showSummary('');
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
