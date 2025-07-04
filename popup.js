@@ -80,6 +80,14 @@ const languageSelect = document.getElementById('summary-language');
 
 const MODEL_ID = 'sshleifer/distilbart-cnn-12-6'; // model choice
 
+const TRANSLATE_MODEL_MAP = {
+  'cn': 'Helsinki-NLP/opus-mt-en-zh',
+  'es': 'Helsinki-NLP/opus-mt-en-es',
+  'fr': 'Helsinki-NLP/opus-mt-en-fr',
+  'de': 'Helsinki-NLP/opus-mt-en-de',
+  'ja': 'Helsinki-NLP/opus-mt-en-ja',
+};
+
 function splitIntoSentenceChunks(text, sentencesPerChunk = 10) {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   const chunks = [];
@@ -89,30 +97,28 @@ function splitIntoSentenceChunks(text, sentencesPerChunk = 10) {
   return chunks;
 }
 
-async function translateText(text, targetLang) {
-  const CORS_PROXY = 'https://corsproxy.io/?';
-  const API_URL = CORS_PROXY + 'https://libretranslate.de/translate';
-  try {
-    const res = await fetch(API_URL, {
+async function translateWithHuggingFace(text, targetLang) {
+  const apiKey = HUGGINGFACE_API_KEY;
+  const model = TRANSLATE_MODEL_MAP[targetLang];
+  if (!model) return text; // fallback: return original if no model
+  const response = await fetch(
+    `https://api-inference.huggingface.co/models/${model}`,
+    {
       method: 'POST',
-      body: JSON.stringify({
-        q: text,
-        source: 'en',
-        target: targetLang,
-        format: 'text'
-      }),
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const data = await res.json();
-    if (data && data.translatedText) {
-      return data.translatedText;
-    } else {
-      console.error('Translation API response:', JSON.stringify(data));
-      throw new Error('Translation API did not return translatedText.');
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ inputs: text })
     }
-  } catch (err) {
-    console.error('Translation error:', err);
-    throw err;
+  );
+  const data = await response.json();
+  if (Array.isArray(data) && data[0]?.translation_text) {
+    return data[0].translation_text;
+  } else if (data.error) {
+    throw new Error(data.error);
+  } else {
+    throw new Error('Unexpected response from Hugging Face translation API');
   }
 }
 
@@ -173,7 +179,7 @@ function cleanSummaryFormatting(text) {
     .trim();
 }
 
-// Summarize button logic (AI-powered, chunked by sentences)
+// Summarize button logic (AI-powered, chunked by sentences, with translation)
 summarizeBtn.addEventListener('click', async () => {
   if (!hasLoadedArticle || !extractedArticle || extractedArticle.length < 50) {
     showSummary('Please refresh to load article content before summarizing.');
@@ -182,7 +188,19 @@ summarizeBtn.addEventListener('click', async () => {
   showSummary('Summarizing with AI...');
   try {
     const summary = await summarizeLongTextWithHuggingFace(extractedArticle);
-    showSummary(cleanSummaryFormatting(summary));
+    const cleanedSummary = cleanSummaryFormatting(summary);
+    const language = languageSelect.value;
+    if (language !== 'en') {
+      showSummary('Translating summary...');
+      try {
+        const translated = await translateWithHuggingFace(cleanedSummary, language);
+        showSummary(cleanSummaryFormatting(translated));
+      } catch (e) {
+        showSummary('Translation failed. Showing English summary.\n' + cleanedSummary);
+      }
+    } else {
+      showSummary(cleanedSummary);
+    }
   } catch (e) {
     showSummary('AI summarization failed: ' + e.message);
   }
