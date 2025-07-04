@@ -212,14 +212,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 function renderFloatingUI() {
   const content = document.getElementById('tldr-floating-content');
   if (!content) return;
+  // Get saved translucency or default to 0.95
+  const savedTrans = parseFloat(localStorage.getItem('tldr-translucency') || '0.95');
+  const opacityPercent = Math.round(savedTrans * 100);
+  const translucencyPercent = 100 - opacityPercent;
   content.innerHTML = `
-    <div id="tldr-theme-row" style="margin-bottom: 12px; width: 100%; display: flex; justify-content: flex-end; align-items: center;">
-      <label for="tldr-theme-select" style="font-size: 12px; color: #86868b; margin-right: 6px;">Theme:</label>
-      <select id="tldr-theme-select" style="padding: 4px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7;">
-        <option value="system">System</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
+    <div id="tldr-theme-row" style="margin-bottom: 12px; width: 100%; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px;">
+      <div id="tldr-translucency-control" style="display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 180px; margin-bottom: 4px;">
+        <label for="tldr-translucency-slider" style="font-size: 12px; color: #86868b;">Translucency:</label>
+        <input id="tldr-translucency-slider" type="range" min="60" max="100" value="${opacityPercent}" style="width: 70px;">
+        <span id="tldr-translucency-value" style="font-size: 12px; color: #86868b; min-width: 28px; text-align: right;">${translucencyPercent}%</span>
+      </div>
+      <div id="tldr-theme-control" style="display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 120px; margin-bottom: 4px;">
+        <label for="tldr-theme-select" style="font-size: 12px; color: #86868b; margin-right: 6px;">Theme:</label>
+        <select id="tldr-theme-select" style="padding: 4px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7;">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
     </div>
     <div id="tldr-initial-prompt" style="margin-bottom: 8px; color: #007AFF; font-style: italic; text-align: center; font-size: 12px; line-height: 1.2; width: 100%; box-sizing: border-box; word-break: break-word;">
       To summarize, please click the Refresh button to load the article content.
@@ -584,8 +595,8 @@ function injectTldrThemeStyles() {
   style.id = 'tldr-theme-style';
   style.textContent = `
     #tldr-floating-window {
-      --tldr-bg: #fff;
-      --tldr-content-bg: #fff;
+      --tldr-bg-opacity: 0.95;
+      --tldr-bg: rgba(255,255,255,var(--tldr-bg-opacity));
       --tldr-header-bg: #18181a;
       --tldr-header-color: #fff;
       --tldr-text: #1d1d1f;
@@ -600,8 +611,7 @@ function injectTldrThemeStyles() {
       --tldr-placeholder-color: #86868b;
     }
     #tldr-floating-window.tldr-theme-dark {
-      --tldr-bg: #18181a;
-      --tldr-content-bg: #232325;
+      --tldr-bg: rgba(24,24,26,var(--tldr-bg-opacity));
       --tldr-header-bg: #18181a;
       --tldr-header-color: #fff;
       --tldr-text: #f5f5f7;
@@ -621,7 +631,7 @@ function injectTldrThemeStyles() {
       border: var(--tldr-border) !important;
     }
     #tldr-floating-content {
-      background: var(--tldr-content-bg) !important;
+      background: var(--tldr-bg) !important;
       color: var(--tldr-text) !important;
     }
     #tldr-floating-header {
@@ -681,9 +691,21 @@ function injectTldrThemeStyles() {
   document.head.appendChild(style);
 }
 
-// After injectFloatingWindow(), call:
-// renderFloatingUI();
-// setupFloatingUIHandlers();
+function setupTranslucencyControl() {
+  const win = document.getElementById('tldr-floating-window');
+  const slider = document.getElementById('tldr-translucency-slider');
+  const valueSpan = document.getElementById('tldr-translucency-value');
+  if (!win || !slider || !valueSpan) return;
+  function setTranslucency(val) {
+    const opacity = Math.round(val) / 100;
+    win.style.setProperty('--tldr-bg-opacity', opacity);
+    localStorage.setItem('tldr-translucency', opacity);
+    valueSpan.textContent = `${100 - Math.round(opacity * 100)}%`;
+  }
+  // Set initial
+  setTranslucency(slider.value);
+  slider.addEventListener('input', () => setTranslucency(slider.value));
+}
 
 // Update injectFloatingWindow to call these after injecting
 const originalInjectFloatingWindow = injectFloatingWindow;
@@ -693,4 +715,5 @@ injectFloatingWindow = function() {
   renderFloatingUI();
   setupFloatingUIHandlers();
   setupThemeSelector();
+  setupTranslucencyControl();
 }; 
