@@ -456,7 +456,7 @@ function setupFloatingUIHandlers() {
     extractedArticle = getMainText();
     if (extractedArticle && extractedArticle.length > 50) {
       hasLoadedArticle = true;
-      showArticle(extractedArticle.substring(0, 1000) + (extractedArticle.length > 1000 ? '...' : ''));
+      showArticle(extractedArticle.substring(0, 200) + (extractedArticle.length > 200 ? '...' : ''));
       showSummary('Click "Summarize" to generate a summary.');
     } else {
       showError('To summarize, please click the Refresh button to load the article content.');
