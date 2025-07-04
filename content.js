@@ -254,8 +254,6 @@ function renderFloatingUI() {
         <option value="cn">Chinese</option>
         <option value="es">Spanish</option>
         <option value="fr">French</option>
-        <option value="de">German</option>
-        <option value="ja">Japanese</option>
       </select>
     </div>
     <div style="margin-bottom: 16px;">
@@ -316,8 +314,6 @@ function setupFloatingUIHandlers() {
     'cn': 'Helsinki-NLP/opus-mt-en-zh',
     'es': 'Helsinki-NLP/opus-mt-en-es',
     'fr': 'Helsinki-NLP/opus-mt-en-fr',
-    'de': 'Helsinki-NLP/opus-mt-en-de',
-    'ja': 'Helsinki-NLP/opus-mt-en-ja',
   };
 
   function showArticle(text) {
@@ -344,6 +340,21 @@ function setupFloatingUIHandlers() {
   }
   function cleanSummaryFormatting(text) {
     return text.replace(/\s+([.,!?;:])/g, '$1').replace(/\s+/g, ' ').trim();
+  }
+  function convertToChinesePunctuation(text) {
+    return text
+      .replace(/,/g, '，')
+      .replace(/\./g, '。')
+      .replace(/!/g, '！')
+      .replace(/\?/g, '？')
+      .replace(/;/g, '；')
+      .replace(/:/g, '：')
+      .replace(/\(/g, '（')
+      .replace(/\)/g, '）')
+      .replace(/"/g, '\u201C')
+      .replace(/"/g, '\u201D')
+      .replace(/'/g, '\u2018')
+      .replace(/'/g, '\u2019');
   }
   function splitIntoSentenceChunks(text, sentencesPerChunk = 10) {
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
@@ -473,7 +484,12 @@ function setupFloatingUIHandlers() {
       showSummary('Translating summary...');
       try {
         const translated = await translateWithHuggingFace(cachedEnglishSummary, language);
-        showSummary(cleanSummaryFormatting(translated));
+        let finalText = cleanSummaryFormatting(translated);
+        // Convert to Chinese punctuation if the language is Chinese
+        if (language === 'cn') {
+          finalText = convertToChinesePunctuation(finalText);
+        }
+        showSummary(finalText);
       } catch (e) {
         showSummary('Translation failed. Showing English summary.\n' + cachedEnglishSummary);
       }
