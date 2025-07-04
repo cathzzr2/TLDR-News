@@ -166,6 +166,13 @@ async function summarizeLongTextWithHuggingFace(text) {
   }
 }
 
+function cleanSummaryFormatting(text) {
+  return text
+    .replace(/\s+([.,!?;:])/g, '$1') // Remove space before punctuation
+    .replace(/\s+/g, ' ')            // Collapse multiple spaces
+    .trim();
+}
+
 // Summarize button logic (AI-powered, chunked by sentences)
 summarizeBtn.addEventListener('click', async () => {
   if (!hasLoadedArticle || !extractedArticle || extractedArticle.length < 50) {
@@ -175,7 +182,7 @@ summarizeBtn.addEventListener('click', async () => {
   showSummary('Summarizing with AI...');
   try {
     const summary = await summarizeLongTextWithHuggingFace(extractedArticle);
-    showSummary(summary);
+    showSummary(cleanSummaryFormatting(summary));
   } catch (e) {
     showSummary('AI summarization failed: ' + e.message);
   }
