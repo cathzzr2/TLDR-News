@@ -136,7 +136,7 @@ function injectFloatingWindow() {
   win.innerHTML = `
     <div id="tldr-floating-header" style="
       cursor: move;
-      padding: 16px 20px;
+      padding: 12px 20px;
       background: rgba(0, 0, 0, 0.8);
       color: white;
       border-radius: 16px 16px 0 0;
@@ -145,8 +145,12 @@ function injectFloatingWindow() {
       align-items: center;
       font-weight: 600;
       font-size: 16px;
+      min-height: 50px;
     ">
-      <span>TL;DR News</span>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <img src="${chrome.runtime.getURL('assets/logo.png')}" alt="TL;DR News" style="width: 70px; height: 70px; object-fit: contain;">
+        <span>TL;DR News</span>
+      </div>
       <button id="tldr-close-btn" style="
         background: none;
         border: none;
