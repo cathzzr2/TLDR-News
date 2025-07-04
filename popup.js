@@ -19,16 +19,27 @@ function showError(msg) {
 }
 
 let extractedArticle = '';
+let hasLoadedArticle = false;
 
-// Listen for messages from content.js
+function promptRefresh() {
+  showArticle('Please click the Refresh button above to load the article content.');
+  showSummary('');
+}
+
+// On popup open, prompt user to refresh
+promptRefresh();
+
+// Listen for article extraction result
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'PAGE_MAIN_TEXT') {
     if (message.mainText && message.mainText.length > 50) {
       extractedArticle = message.mainText;
+      hasLoadedArticle = true;
       showArticle(extractedArticle.substring(0, 1000) + (extractedArticle.length > 1000 ? '...' : ''));
       showSummary('Click "Summarize" to generate a summary.');
     } else {
       showError('No main article content found on this page.');
+      hasLoadedArticle = false;
     }
   }
 });
@@ -64,8 +75,8 @@ const lengthSelect = document.getElementById('summary-length');
 const languageSelect = document.getElementById('summary-language');
 
 summarizeBtn.addEventListener('click', () => {
-  if (!extractedArticle || extractedArticle.length < 50) {
-    showSummary('No article content to summarize.');
+  if (!hasLoadedArticle || !extractedArticle || extractedArticle.length < 50) {
+    showSummary('Please refresh to load article content before summarizing.');
     return;
   }
   // Get user options
