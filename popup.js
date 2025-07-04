@@ -40,20 +40,41 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
 // Summarize button logic
 const summarizeBtn = document.getElementById('summarize-btn');
+const lengthSelect = document.getElementById('summary-length');
+const languageSelect = document.getElementById('summary-language');
+
 summarizeBtn.addEventListener('click', () => {
   if (!extractedArticle || extractedArticle.length < 50) {
     showSummary('No article content to summarize.');
     return;
   }
-  // Simple placeholder: show first 2 sentences as the summary
+  // Get user options
+  const length = lengthSelect.value;
+  const language = languageSelect.value;
+  // Determine number of sentences based on length
+  let numSentences = 2;
+  if (length === 'short') numSentences = 1;
+  else if (length === 'medium') numSentences = 3;
+  else if (length === 'detailed') numSentences = 6;
+  // Simple placeholder: show first N sentences as the summary
   const sentences = extractedArticle.match(/[^.!?]+[.!?]+/g);
   let summary = '';
-  if (sentences && sentences.length > 1) {
-    summary = sentences.slice(0, 2).join(' ');
+  if (sentences && sentences.length > 0) {
+    summary = sentences.slice(0, numSentences).join(' ');
   } else {
     summary = extractedArticle.substring(0, 200) + (extractedArticle.length > 200 ? '...' : '');
   }
-  showSummary(summary);
+  // Simulate language selection (real translation API can be added later)
+  let langLabel = '';
+  switch (language) {
+    case 'cn': langLabel = '[Chinese] '; break;
+    case 'es': langLabel = '[Spanish] '; break;
+    case 'fr': langLabel = '[French] '; break;
+    case 'de': langLabel = '[German] '; break;
+    case 'ja': langLabel = '[Japanese] '; break;
+    default: langLabel = '';
+  }
+  showSummary(langLabel + summary);
 });
 
 // Copy & Share button logic
@@ -87,4 +108,14 @@ shareBtn.addEventListener('click', () => {
       });
     }
   }
+});
+
+const refreshBtn = document.getElementById('refresh-btn');
+
+refreshBtn.addEventListener('click', () => {
+  showArticle('Refreshing article...');
+  showSummary('');
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.tabs.sendMessage(tabs[0].id, { type: 'REFRESH_MAIN_TEXT' });
+  });
 }); 

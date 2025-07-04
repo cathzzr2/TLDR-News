@@ -48,7 +48,17 @@ window.addEventListener('DOMContentLoaded', () => {
 // Listen for requests from the popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'REQUEST_MAIN_TEXT') {
-    // Re-extract in case of dynamic content
+    // Only re-extract if cache is empty
+    if (!extractedMainText || extractedMainText.length < 50) {
+      extractedMainText = getMainText();
+    }
+    chrome.runtime.sendMessage({
+      type: 'PAGE_MAIN_TEXT',
+      mainText: extractedMainText
+    });
+  }
+  if (message.type === 'REFRESH_MAIN_TEXT') {
+    // Force re-extraction
     extractedMainText = getMainText();
     chrome.runtime.sendMessage({
       type: 'PAGE_MAIN_TEXT',

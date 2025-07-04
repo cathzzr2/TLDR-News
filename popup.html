@@ -10,7 +10,27 @@
   <div id="article-container">
     <p>Loading article...</p>
   </div>
-  <button id="summarize-btn">Summarize</button>
+  <div id="summary-options" style="margin-bottom: 10px;">
+    <label for="summary-length" style="margin-right: 6px;">Length:</label>
+    <select id="summary-length">
+      <option value="short">Short</option>
+      <option value="medium" selected>Medium</option>
+      <option value="detailed">Detailed</option>
+    </select>
+    <label for="summary-language" style="margin-left: 12px; margin-right: 6px;">Language:</label>
+    <select id="summary-language">
+      <option value="en" selected>English</option>
+      <option value="cn">Chinese</option>
+      <option value="es">Spanish</option>
+      <option value="fr">French</option>
+      <option value="de">German</option>
+      <option value="ja">Japanese</option>
+    </select>
+  </div>
+  <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+    <button id="summarize-btn">Summarize</button>
+    <button id="refresh-btn" title="Refresh article extraction">Refresh</button>
+  </div>
   <div id="summary-container">
     <p>Summary will appear here.</p>
   </div>
