@@ -9,13 +9,14 @@
     "https://*/*",
     "https://libretranslate.de/*"
   ],
-  "action": {
-    "default_popup": "popup.html"
-  },
+  "action": {},
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
       "js": ["readability.js", "content.js"]
     }
-  ]
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
 } 
