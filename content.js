@@ -213,6 +213,14 @@ function renderFloatingUI() {
   const content = document.getElementById('tldr-floating-content');
   if (!content) return;
   content.innerHTML = `
+    <div id="tldr-theme-row" style="margin-bottom: 12px; width: 100%; display: flex; justify-content: flex-end; align-items: center;">
+      <label for="tldr-theme-select" style="font-size: 12px; color: #86868b; margin-right: 6px;">Theme:</label>
+      <select id="tldr-theme-select" style="padding: 4px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7;">
+        <option value="system">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
     <div id="tldr-initial-prompt" style="margin-bottom: 8px; color: #007AFF; font-style: italic; text-align: center; font-size: 12px; line-height: 1.2; width: 100%; box-sizing: border-box; word-break: break-word;">
       To summarize, please click the Refresh button to load the article content.
     </div>
@@ -537,6 +545,142 @@ function setupFloatingUIHandlers() {
   });
 }
 
+// THEME LOGIC
+function applyTldrTheme(theme) {
+  const win = document.getElementById('tldr-floating-window');
+  if (!win) return;
+  // Remove any previous theme class
+  win.classList.remove('tldr-theme-light', 'tldr-theme-dark');
+  let finalTheme = theme;
+  if (theme === 'system') {
+    finalTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  win.classList.add('tldr-theme-' + finalTheme);
+}
+
+function setupThemeSelector() {
+  const select = document.getElementById('tldr-theme-select');
+  if (!select) return;
+  // Load from localStorage or default to system
+  const saved = localStorage.getItem('tldr-theme') || 'system';
+  select.value = saved;
+  applyTldrTheme(saved);
+  select.addEventListener('change', () => {
+    localStorage.setItem('tldr-theme', select.value);
+    applyTldrTheme(select.value);
+  });
+  // Listen for system theme changes if system is selected
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if ((localStorage.getItem('tldr-theme') || 'system') === 'system') {
+      applyTldrTheme('system');
+    }
+  });
+}
+
+// Add theme CSS to the floating window
+function injectTldrThemeStyles() {
+  if (document.getElementById('tldr-theme-style')) return;
+  const style = document.createElement('style');
+  style.id = 'tldr-theme-style';
+  style.textContent = `
+    #tldr-floating-window {
+      --tldr-bg: #fff;
+      --tldr-content-bg: #fff;
+      --tldr-header-bg: #18181a;
+      --tldr-header-color: #fff;
+      --tldr-text: #1d1d1f;
+      --tldr-border: 1px solid #d2d2d7;
+      --tldr-btn-bg: #007AFF;
+      --tldr-btn-color: #fff;
+      --tldr-btn-border: none;
+      --tldr-select-bg: #fff;
+      --tldr-select-color: #1d1d1f;
+      --tldr-select-border: 1px solid #d2d2d7;
+      --tldr-label-color: #1d1d1f;
+      --tldr-placeholder-color: #86868b;
+    }
+    #tldr-floating-window.tldr-theme-dark {
+      --tldr-bg: #18181a;
+      --tldr-content-bg: #232325;
+      --tldr-header-bg: #18181a;
+      --tldr-header-color: #fff;
+      --tldr-text: #f5f5f7;
+      --tldr-border: 1px solid #444;
+      --tldr-btn-bg: #0a84ff;
+      --tldr-btn-color: #fff;
+      --tldr-btn-border: none;
+      --tldr-select-bg: #232325;
+      --tldr-select-color: #f5f5f7;
+      --tldr-select-border: 1px solid #444;
+      --tldr-label-color: #f5f5f7;
+      --tldr-placeholder-color: #b0b0b8;
+    }
+    #tldr-floating-window {
+      background: var(--tldr-bg) !important;
+      color: var(--tldr-text) !important;
+      border: var(--tldr-border) !important;
+    }
+    #tldr-floating-content {
+      background: var(--tldr-content-bg) !important;
+      color: var(--tldr-text) !important;
+    }
+    #tldr-floating-header {
+      background: var(--tldr-header-bg) !important;
+      color: var(--tldr-header-color) !important;
+    }
+    #tldr-floating-content label,
+    #tldr-floating-content select,
+    #tldr-floating-content option,
+    #tldr-floating-content h3 {
+      color: var(--tldr-label-color) !important;
+      background: transparent !important;
+    }
+    #tldr-floating-content select {
+      background: var(--tldr-select-bg) !important;
+      color: var(--tldr-select-color) !important;
+      border: var(--tldr-select-border) !important;
+    }
+    #tldr-floating-content select:disabled {
+      background: var(--tldr-select-bg) !important;
+      color: var(--tldr-placeholder-color) !important;
+      opacity: 1 !important;
+    }
+    #tldr-floating-content p,
+    #tldr-floating-content h3 {
+      color: var(--tldr-text) !important;
+      background: transparent !important;
+    }
+    #tldr-floating-content p[style*='italic'],
+    #tldr-floating-content p[style*='italic'] * {
+      color: var(--tldr-placeholder-color) !important;
+    }
+    #tldr-floating-content button {
+      background: var(--tldr-btn-bg) !important;
+      color: var(--tldr-btn-color) !important;
+      border: var(--tldr-btn-border) !important;
+    }
+    #tldr-floating-content #copy-summary-btn,
+    #tldr-floating-content #share-summary-btn {
+      background: #f5f5f7 !important;
+      color: var(--tldr-text) !important;
+      border: 1px solid #d2d2d7 !important;
+    }
+    #tldr-floating-window.tldr-theme-dark #tldr-floating-content #copy-summary-btn,
+    #tldr-floating-window.tldr-theme-dark #tldr-floating-content #share-summary-btn {
+      background: #232325 !important;
+      color: #f5f5f7 !important;
+      border: 1px solid #444 !important;
+    }
+    #tldr-initial-prompt {
+      color: #007AFF !important;
+    }
+    #tldr-floating-window.tldr-theme-dark #tldr-initial-prompt {
+      color: #0a84ff !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 // After injectFloatingWindow(), call:
 // renderFloatingUI();
 // setupFloatingUIHandlers();
@@ -545,6 +689,8 @@ function setupFloatingUIHandlers() {
 const originalInjectFloatingWindow = injectFloatingWindow;
 injectFloatingWindow = function() {
   originalInjectFloatingWindow();
+  injectTldrThemeStyles();
   renderFloatingUI();
   setupFloatingUIHandlers();
+  setupThemeSelector();
 }; 
