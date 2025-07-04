@@ -216,23 +216,40 @@ function renderFloatingUI() {
   const savedTrans = parseFloat(localStorage.getItem('tldr-translucency') || '0.95');
   const opacityPercent = Math.round(savedTrans * 100);
   const translucencyPercent = 100 - opacityPercent;
+  const savedColor = localStorage.getItem('tldr-color') || 'blue';
+  const colorOptions = [
+    { value: 'blue', label: 'Blue' },
+    { value: 'grey', label: 'Grey' },
+    { value: 'green', label: 'Green' },
+    { value: 'red', label: 'Red' },
+    { value: 'purple', label: 'Purple' }
+  ];
+  const colorSelectOptions = colorOptions.map(opt => `<option value="${opt.value}"${savedColor === opt.value ? ' selected' : ''}>${opt.label}</option>`).join('');
   content.innerHTML = `
-    <div id="tldr-theme-row" style="margin-bottom: 12px; width: 100%; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px;">
-      <div id="tldr-translucency-control" style="display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 180px; margin-bottom: 4px;">
-        <label for="tldr-translucency-slider" style="font-size: 12px; color: #86868b;">Translucency:</label>
-        <input id="tldr-translucency-slider" type="range" min="60" max="100" value="${opacityPercent}" style="width: 70px;">
+    <div id="tldr-theme-row" style="margin-bottom: 12px; width: 100%; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 24px;">
+      <div id="tldr-translucency-control" style="display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 auto; margin-bottom: 4px;">
+        <label for="tldr-translucency-slider" style="font-size: 12px; color: var(--tldr-strong-label); white-space: nowrap;">Translucency:</label>
+        <input id="tldr-translucency-slider" type="range" min="60" max="100" value="${opacityPercent}" style="flex: 1 1 auto; min-width: 0; accent-color: var(--tldr-accent);">
         <span id="tldr-translucency-value" style="font-size: 12px; color: #86868b; min-width: 28px; text-align: right;">${translucencyPercent}%</span>
       </div>
-      <div id="tldr-theme-control" style="display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 120px; margin-bottom: 4px;">
-        <label for="tldr-theme-select" style="font-size: 12px; color: #86868b; margin-right: 6px;">Theme:</label>
-        <select id="tldr-theme-select" style="padding: 4px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7;">
-          <option value="system">System</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
+      <div id="tldr-color-theme-group" style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; margin-bottom: 4px;">
+        <div id="tldr-color-control" style="display: flex; align-items: center; gap: 4px; min-width: 0;">
+          <label for="tldr-color-select" style="font-size: 12px; color: #86868b;">Color:</label>
+          <select id="tldr-color-select" style="padding: 4px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7;">
+            ${colorSelectOptions}
+          </select>
+        </div>
+        <div id="tldr-theme-control" style="display: flex; align-items: center; gap: 4px; min-width: 0;">
+          <label for="tldr-theme-select" style="font-size: 12px; color: #86868b; margin-right: 2px;">Theme:</label>
+          <select id="tldr-theme-select" style="padding: 4px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #d2d2d7;">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
       </div>
     </div>
-    <div id="tldr-initial-prompt" style="margin-bottom: 8px; color: #007AFF; font-style: italic; text-align: center; font-size: 12px; line-height: 1.2; width: 100%; box-sizing: border-box; word-break: break-word;">
+    <div id="tldr-initial-prompt" style="margin-bottom: 8px; color: var(--tldr-accent); font-style: italic; text-align: center; font-size: 12px; line-height: 1.2; width: 100%; box-sizing: border-box; word-break: break-word;">
       To summarize, please click the Refresh button to load the article content.
     </div>
     <div style="margin-bottom: 16px; width: 100%; box-sizing: border-box;">
@@ -601,7 +618,7 @@ function injectTldrThemeStyles() {
       --tldr-header-color: #fff;
       --tldr-text: #1d1d1f;
       --tldr-border: 1px solid #d2d2d7;
-      --tldr-btn-bg: #007AFF;
+      --tldr-btn-bg: #4F8EF7;
       --tldr-btn-color: #fff;
       --tldr-btn-border: none;
       --tldr-select-bg: #fff;
@@ -609,6 +626,8 @@ function injectTldrThemeStyles() {
       --tldr-select-border: 1px solid #d2d2d7;
       --tldr-label-color: #1d1d1f;
       --tldr-placeholder-color: #86868b;
+      --tldr-accent: #4F8EF7;
+      --tldr-strong-label: #1d1d1f;
     }
     #tldr-floating-window.tldr-theme-dark {
       --tldr-bg: rgba(24,24,26,var(--tldr-bg-opacity));
@@ -616,7 +635,7 @@ function injectTldrThemeStyles() {
       --tldr-header-color: #fff;
       --tldr-text: #f5f5f7;
       --tldr-border: 1px solid #444;
-      --tldr-btn-bg: #0a84ff;
+      --tldr-btn-bg: #3A6FC1;
       --tldr-btn-color: #fff;
       --tldr-btn-border: none;
       --tldr-select-bg: #232325;
@@ -624,6 +643,69 @@ function injectTldrThemeStyles() {
       --tldr-select-border: 1px solid #444;
       --tldr-label-color: #f5f5f7;
       --tldr-placeholder-color: #b0b0b8;
+      --tldr-accent: #3A6FC1;
+      --tldr-strong-label: #fff;
+    }
+    /* Color themes */
+    #tldr-floating-window.tldr-color-blue {
+      --tldr-btn-bg: #4F8EF7;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #4F8EF7;
+      --tldr-header-bg: #4F8EF7;
+    }
+    #tldr-floating-window.tldr-theme-dark.tldr-color-blue {
+      --tldr-btn-bg: #3A6FC1;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #3A6FC1;
+      --tldr-header-bg: #3A6FC1;
+    }
+    #tldr-floating-window.tldr-color-grey {
+      --tldr-btn-bg: #A0A4AB;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #A0A4AB;
+      --tldr-header-bg: #A0A4AB;
+    }
+    #tldr-floating-window.tldr-theme-dark.tldr-color-grey {
+      --tldr-btn-bg: #5A5E66;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #5A5E66;
+      --tldr-header-bg: #5A5E66;
+    }
+    #tldr-floating-window.tldr-color-green {
+      --tldr-btn-bg: #5AC18E;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #5AC18E;
+      --tldr-header-bg: #5AC18E;
+    }
+    #tldr-floating-window.tldr-theme-dark.tldr-color-green {
+      --tldr-btn-bg: #388E6C;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #388E6C;
+      --tldr-header-bg: #388E6C;
+    }
+    #tldr-floating-window.tldr-color-red {
+      --tldr-btn-bg: #F76C6C;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #F76C6C;
+      --tldr-header-bg: #F76C6C;
+    }
+    #tldr-floating-window.tldr-theme-dark.tldr-color-red {
+      --tldr-btn-bg: #C14B4B;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #C14B4B;
+      --tldr-header-bg: #C14B4B;
+    }
+    #tldr-floating-window.tldr-color-purple {
+      --tldr-btn-bg: #A18FD1;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #A18FD1;
+      --tldr-header-bg: #A18FD1;
+    }
+    #tldr-floating-window.tldr-theme-dark.tldr-color-purple {
+      --tldr-btn-bg: #6C5B7B;
+      --tldr-btn-color: #fff;
+      --tldr-accent: #6C5B7B;
+      --tldr-header-bg: #6C5B7B;
     }
     #tldr-floating-window {
       background: var(--tldr-bg) !important;
@@ -637,6 +719,21 @@ function injectTldrThemeStyles() {
     #tldr-floating-header {
       background: var(--tldr-header-bg) !important;
       color: var(--tldr-header-color) !important;
+    }
+    #tldr-theme-row label[for='tldr-translucency-slider'] {
+      color: var(--tldr-strong-label);
+    }
+    #tldr-translucency-slider::-webkit-slider-thumb {
+      background: var(--tldr-accent) !important;
+      border: 2px solid #fff !important;
+    }
+    #tldr-translucency-slider::-moz-range-thumb {
+      background: var(--tldr-accent) !important;
+      border: 2px solid #fff !important;
+    }
+    #tldr-translucency-slider::-ms-thumb {
+      background: var(--tldr-accent) !important;
+      border: 2px solid #fff !important;
     }
     #tldr-floating-content label,
     #tldr-floating-content select,
@@ -682,10 +779,13 @@ function injectTldrThemeStyles() {
       border: 1px solid #444 !important;
     }
     #tldr-initial-prompt {
-      color: #007AFF !important;
+      color: var(--tldr-accent) !important;
     }
     #tldr-floating-window.tldr-theme-dark #tldr-initial-prompt {
-      color: #0a84ff !important;
+      color: var(--tldr-accent) !important;
+    }
+    #tldr-translucency-slider {
+      accent-color: var(--tldr-accent) !important;
     }
   `;
   document.head.appendChild(style);
@@ -707,6 +807,26 @@ function setupTranslucencyControl() {
   slider.addEventListener('input', () => setTranslucency(slider.value));
 }
 
+function applyTldrColor(color) {
+  const win = document.getElementById('tldr-floating-window');
+  if (!win) return;
+  win.classList.remove('tldr-color-blue', 'tldr-color-grey', 'tldr-color-green', 'tldr-color-red', 'tldr-color-purple');
+  win.classList.add('tldr-color-' + color);
+}
+
+function setupColorSelector() {
+  const select = document.getElementById('tldr-color-select');
+  if (!select) return;
+  // Load from localStorage or default to blue
+  const saved = localStorage.getItem('tldr-color') || 'blue';
+  select.value = saved;
+  applyTldrColor(saved);
+  select.addEventListener('change', () => {
+    localStorage.setItem('tldr-color', select.value);
+    applyTldrColor(select.value);
+  });
+}
+
 // Update injectFloatingWindow to call these after injecting
 const originalInjectFloatingWindow = injectFloatingWindow;
 injectFloatingWindow = function() {
@@ -716,4 +836,5 @@ injectFloatingWindow = function() {
   setupFloatingUIHandlers();
   setupThemeSelector();
   setupTranslucencyControl();
+  setupColorSelector();
 }; 
