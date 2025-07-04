@@ -210,7 +210,10 @@ function renderFloatingUI() {
   const content = document.getElementById('tldr-floating-content');
   if (!content) return;
   content.innerHTML = `
-    <div style="margin-bottom: 16px;">
+    <div id="tldr-initial-prompt" style="margin-bottom: 8px; color: #007AFF; font-style: italic; text-align: center; font-size: 12px; line-height: 1.2; width: 100%; box-sizing: border-box; word-break: break-word;">
+      To summarize, please click the Refresh button to load the article content.
+    </div>
+    <div style="margin-bottom: 16px; width: 100%; box-sizing: border-box;">
       <button id="refresh-btn" style="
         background: #007AFF;
         color: white;
@@ -224,10 +227,10 @@ function renderFloatingUI() {
         float: right;
       " title="Refresh article extraction">Refresh</button>
     </div>
-    <div id="article-container" style="margin-bottom: 16px;">
+    <div id="article-container" style="margin-bottom: 16px; width: 100%; box-sizing: border-box;">
       <p style="color: #86868b; font-style: italic;">Loading article...</p>
     </div>
-    <div id="summary-options" style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+    <div id="summary-options" style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center; width: 100%; box-sizing: border-box; flex-wrap: wrap;">
       <label for="summary-length" style="font-weight: 500; color: #1d1d1f;">Length:</label>
       <select id="summary-length" style="
         padding: 6px 12px;
@@ -236,6 +239,9 @@ function renderFloatingUI() {
         font-size: 14px;
         background: white;
         color: #1d1d1f;
+        min-width: 0;
+        flex: 1 1 80px;
+        box-sizing: border-box;
       ">
         <option value="short">Short</option>
         <option value="medium" selected>Medium</option>
@@ -249,6 +255,9 @@ function renderFloatingUI() {
         font-size: 14px;
         background: white;
         color: #1d1d1f;
+        min-width: 0;
+        flex: 1 1 80px;
+        box-sizing: border-box;
       ">
         <option value="en" selected>English</option>
         <option value="cn">Chinese</option>
@@ -444,6 +453,9 @@ function setupFloatingUIHandlers() {
   const languageSelect = document.getElementById('summary-language');
 
   refreshBtn.addEventListener('click', () => {
+    // Hide the initial prompt when Refresh is clicked
+    const prompt = document.getElementById('tldr-initial-prompt');
+    if (prompt) prompt.style.display = 'none';
     hasTriedRefresh = true;
     showArticle('Refreshing article...');
     showSummary('');
@@ -520,9 +532,6 @@ function setupFloatingUIHandlers() {
       }
     }
   });
-
-  // Initial prompt
-  showError('To summarize, please click the Refresh button to load the article content.');
 }
 
 // After injectFloatingWindow(), call:
