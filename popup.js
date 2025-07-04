@@ -54,4 +54,37 @@ summarizeBtn.addEventListener('click', () => {
     summary = extractedArticle.substring(0, 200) + (extractedArticle.length > 200 ? '...' : '');
   }
   showSummary(summary);
+});
+
+// Copy & Share button logic
+const copyBtn = document.getElementById('copy-summary-btn');
+const shareBtn = document.getElementById('share-summary-btn');
+
+function getCurrentSummary() {
+  const container = document.getElementById('summary-container');
+  // Get only the text content, not the heading
+  return container ? container.innerText.replace(/^Summary\s*/, '') : '';
+}
+
+copyBtn.addEventListener('click', () => {
+  const summary = getCurrentSummary();
+  if (summary) {
+    navigator.clipboard.writeText(summary).then(() => {
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1200);
+    });
+  }
+});
+
+shareBtn.addEventListener('click', () => {
+  const summary = getCurrentSummary();
+  if (summary) {
+    if (navigator.share) {
+      navigator.share({ text: summary, title: 'TL;DR News Summary' });
+    } else {
+      navigator.clipboard.writeText(summary).then(() => {
+        alert('Summary copied to clipboard! You can now paste it anywhere.');
+      });
+    }
+  }
 }); 
