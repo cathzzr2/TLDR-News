@@ -586,7 +586,12 @@ function setupFloatingUIHandlers() {
   }
   async function setBookmarks(arr) {
     console.log('Saving bookmarks:', arr);
+    console.log('Bookmarks count to save:', arr.length);
     await setChromeStorage('tldr-bookmarks', arr);
+    
+    // Verify the save worked
+    const savedBookmarks = await getChromeStorage('tldr-bookmarks', []);
+    console.log('Verification - saved bookmarks count:', savedBookmarks.length);
     console.log('Bookmarks saved successfully');
   }
   
@@ -854,11 +859,24 @@ function setupFloatingUIHandlers() {
   shareBtn.addEventListener('click', () => {
     const summary = document.getElementById('summary-text').innerText.replace(/^Summary\s*/, '');
     if (summary) {
+      const articleTitle = document.title;
+      const articleUrl = window.location.href;
+      const currentModel = SUMMARIZATION_MODELS.find(m => m.id === currentModelId)?.name || 'Unknown Model';
+      
+      // Put the article URL as the first line for best preview in chat apps
+      const fullShareText = `${articleUrl}\n\n📰 ${articleTitle}\n\n📝 Summary (${currentModel}):\n${summary}\n\n---\nShared via TL;DR News Extension`;
+      
       if (navigator.share) {
-        navigator.share({ text: summary, title: 'TL;DR News Summary' });
+        navigator.share({
+          text: fullShareText
+        }).catch((error) => {
+          navigator.clipboard.writeText(fullShareText).then(() => {
+            alert('Enhanced summary copied to clipboard! You can now paste it anywhere.');
+          });
+        });
       } else {
-        navigator.clipboard.writeText(summary).then(() => {
-          alert('Summary copied to clipboard! You can now paste it anywhere.');
+        navigator.clipboard.writeText(fullShareText).then(() => {
+          alert('Enhanced summary copied to clipboard! You can now paste it anywhere.');
         });
       }
     }
@@ -1157,21 +1175,28 @@ injectFloatingWindow = async function() {
   if (modelModal) modelModal.style.display = 'none';
 };
 
-// Migrate old history to bookmarks if needed (Chrome storage version)
+// Simple migration check - only run once
 (async () => {
   try {
-    const oldHistory = await getChromeStorage('tldr-history', null);
-    const existingBookmarks = await getChromeStorage('tldr-bookmarks', []);
-    console.log('Migration check - oldHistory:', oldHistory);
-    console.log('Migration check - existingBookmarks count:', existingBookmarks.length);
-    
-    if (oldHistory && existingBookmarks.length === 0) {
-      await setChromeStorage('tldr-bookmarks', oldHistory);
-      await setChromeStorage('tldr-history', null);
-      console.log('Migrated history to bookmarks');
+    const migrationDone = await getChromeStorage('tldr-migration-done', false);
+    if (migrationDone) {
+      console.log('Migration already completed, skipping');
+      return;
     }
+    
+    // Only migrate if localStorage has data and Chrome storage is empty
+    const existingBookmarks = await getChromeStorage('tldr-bookmarks', []);
+    if (localStorage.getItem('tldr-bookmarks') && existingBookmarks.length === 0) {
+      const bookmarks = JSON.parse(localStorage.getItem('tldr-bookmarks'));
+      await setChromeStorage('tldr-bookmarks', bookmarks);
+      localStorage.removeItem('tldr-bookmarks');
+      console.log('Migrated bookmarks from localStorage');
+    }
+    
+    await setChromeStorage('tldr-migration-done', true);
+    console.log('Migration completed');
   } catch (error) {
-    console.error('Error in history migration:', error);
+    console.error('Error in migration:', error);
   }
 })();
 
@@ -1189,25 +1214,12 @@ async function setChromeStorage(key, value) {
   });
 }
 
-// Migrate old localStorage to chrome.storage.local if needed
+// Additional settings migration (only for non-bookmark settings)
 (async () => {
   try {
-    // Check if migration has already been done
-    const migrationDone = await getChromeStorage('tldr-migration-done', false);
+    const migrationDone = await getChromeStorage('tldr-settings-migration-done', false);
     if (migrationDone) {
-      console.log('Migration already completed, skipping');
       return;
-    }
-    
-    console.log('Starting localStorage to Chrome storage migration...');
-    
-    // Only migrate bookmarks if Chrome storage is empty
-    const existingChromeBookmarks = await getChromeStorage('tldr-bookmarks', []);
-    if (localStorage.getItem('tldr-bookmarks') && existingChromeBookmarks.length === 0) {
-      const bookmarks = JSON.parse(localStorage.getItem('tldr-bookmarks'));
-      await setChromeStorage('tldr-bookmarks', bookmarks);
-      localStorage.removeItem('tldr-bookmarks');
-      console.log('Migrated bookmarks from localStorage to Chrome storage');
     }
     
     // Only migrate other settings if they don't exist in Chrome storage
@@ -1229,11 +1241,9 @@ async function setChromeStorage(key, value) {
       localStorage.removeItem('tldr-translucency');
     }
     
-    // Mark migration as complete
-    await setChromeStorage('tldr-migration-done', true);
-    console.log('Migration completed successfully');
+    await setChromeStorage('tldr-settings-migration-done', true);
   } catch (error) {
-    console.error('Error migrating localStorage to Chrome storage:', error);
+    console.error('Error in settings migration:', error);
   }
 })();
 
