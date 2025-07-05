@@ -50,6 +50,7 @@ AI-powered Chrome extension for instant news and article summaries. Extract, sum
 
 ### Demo
 After setup, visit any news website and click the extension icon to see the floating window in action.
+Sample: https://youtu.be/AhPde3tTlNU
 
 ## 📋 Requirements
 
