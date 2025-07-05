@@ -31,4 +31,4 @@ We may update this privacy policy from time to time. Any changes will be posted 
 
 ## Contact
 
-If you have any questions about this privacy policy or the extension, please contact: [your@email.com] 
+If you have any questions about this privacy policy or the extension, please contact: [cathzzr2@email.com] 
