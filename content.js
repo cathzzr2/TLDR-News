@@ -116,7 +116,7 @@ function injectFloatingWindow() {
     position: fixed;
     top: 80px;
     right: 40px;
-    width: 420px;
+    width: 380px;
     height: 580px;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(20px);
