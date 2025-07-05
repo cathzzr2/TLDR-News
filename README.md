@@ -12,6 +12,14 @@ AI-powered Chrome extension for instant news and article summaries. Extract, sum
 - **Native Sharing**: Share summaries with article title and link
 - **Content Extraction**: Mozilla's Readability.js with DOM fallback
 
+## 📸 Use Cases
+
+<div align="center">
+  <img src="assets/main.png" alt="Main Interface" width="250" />
+  <img src="assets/bookmarks.png" alt="Bookmarks" width="250" />
+  <img src="assets/share.png" alt="Sharing" width="250" />
+</div>
+
 ## 🚀 For Users
 
 1. Navigate to any news or article page
