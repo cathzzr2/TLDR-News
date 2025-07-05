@@ -9,7 +9,7 @@ AI-powered Chrome extension for instant news and article summaries. Extract, sum
 - **Multi-language Support**: Summarize in English, Chinese, Spanish, and French
 - **Floating Interface**: Draggable, resizable window with theme customization
 - **Smart Bookmarking**: Save articles with summaries and metadata
-- **Native Sharing**: Share summaries with article title and link
+- **Native Sharing**: Intelligently formatted sharing with article title and link for optimal previews
 - **Content Extraction**: Mozilla's Readability.js with DOM fallback
 
 ## 📸 Use Cases
@@ -28,6 +28,7 @@ AI-powered Chrome extension for instant news and article summaries. Extract, sum
 4. Choose your preferred AI model and language
 5. Summarize to generate an instant AI-powered summary
 6. Save to bookmark the article and summary
+7. Share summaries with friends - the message is optimized for link previews in messaging apps
 
 ## 🛠️ For Developers
 
