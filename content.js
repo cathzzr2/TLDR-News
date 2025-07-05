@@ -2,7 +2,7 @@
 // This script extracts the main article content from news pages using Readability.js and sends it to the popup on request.
 
 // Hardcoded Hugging Face API key for development (do not commit to public repos)
-const HUGGINGFACE_API_KEY = '***REMOVED***'; // <-- Replace with your actual token
+const HUGGINGFACE_API_KEY = 'HUGGINGFACE_API_KEY'; // <-- Replace with your actual token
 
 // Inject the API key from config.js into the page context if not already present
 if (typeof window.HUGGINGFACE_API_KEY === 'undefined') {
