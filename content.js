@@ -148,7 +148,7 @@ function injectFloatingWindow() {
       min-height: 50px;
     ">
       <div style="display: flex; align-items: center; gap: 8px;">
-        <img src="${chrome.runtime.getURL('assets/logo.png')}" alt="TL;DR News" style="width: 70px; height: 70px; object-fit: contain;">
+        <img src="${chrome.runtime.getURL('assets/ext-logo.png')}" alt="TL;DR News" style="width: 50px; height: 50px; object-fit: contain;">
         <span>TL;DR News</span>
       </div>
       <button id="tldr-close-btn" style="
